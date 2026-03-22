@@ -2,9 +2,12 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useGameStore } from "../../stores/gameStore";
+import { useLaneStore } from "../../stores/laneStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useShipStore } from "../../stores/shipStore";
+import { handleFireButton } from "../../systems/combat";
 import type { Vector3Tuple } from "../../types/game";
+import { cameraRef } from "../../utils/cameraRef";
 import { PHYSICS } from "../../utils/constants";
 import { applyDrag, applyThrust, clampVelocity } from "../../utils/physics";
 import { touchCameraMovement } from "../../utils/touchCamera";
@@ -24,6 +27,7 @@ export default function ShipController() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.current.add(e.code);
+
       if (e.code === "Tab") {
         e.preventDefault();
         useGameStore.getState().toggleHUD();
@@ -37,10 +41,26 @@ export default function ShipController() {
           useGameStore.getState().togglePauseMenu();
         }
       }
+      // Fire with F key (Space is boost)
+      if (e.code === "KeyF") {
+        handleFireButton();
+      }
+      // Lane controls: Q = down, E = up
+      if (e.code === "KeyQ") {
+        useLaneStore.getState().changeLane("down");
+      }
+      if (e.code === "KeyE") {
+        useLaneStore.getState().changeLane("up");
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => keys.current.delete(e.code);
 
     const handleMouseMove = (e: MouseEvent) => {
+      // Aim angle from mouse X movement (always active)
+      const aimDelta = e.movementX * 0.5;
+      const currentAim = useLaneStore.getState().aimAngle;
+      useLaneStore.getState().setAimAngle(currentAim + aimDelta);
+
       if (!isPointerLocked.current) return;
       mouseMovement.current.x += e.movementX;
       mouseMovement.current.y += e.movementY;
@@ -96,7 +116,6 @@ export default function ShipController() {
     yaw.current -= mouseMovement.current.x * mouseSensitivity;
     pitch.current -= mouseMovement.current.y * mouseSensitivity;
 
-    // Apply touch camera input
     yaw.current -= touchCameraMovement.x * touchSensitivity;
     pitch.current -= touchCameraMovement.y * touchSensitivity;
     touchCameraMovement.x = 0;
@@ -108,8 +127,11 @@ export default function ShipController() {
     );
     mouseMovement.current = { x: 0, y: 0 };
 
-    if (keys.current.has("KeyQ")) roll.current += PHYSICS.ROTATION_SPEED * dt;
-    if (keys.current.has("KeyE")) roll.current -= PHYSICS.ROTATION_SPEED * dt;
+    // Roll still available via direct ref manipulation if needed (Q/E now do lane changes)
+    const rollQ = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      roll.current,
+    );
 
     const quaternion = new THREE.Quaternion();
     const yawQ = new THREE.Quaternion().setFromAxisAngle(
@@ -120,14 +142,19 @@ export default function ShipController() {
       new THREE.Vector3(1, 0, 0),
       pitch.current,
     );
-    const rollQ = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      roll.current,
-    );
     quaternion.multiplyQuaternions(yawQ, pitchQ).multiply(rollQ);
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion);
+
+    // — Update cameraRef so fireWeapon() can spawn projectiles correctly —
+    const pos = positionRef.current;
+    cameraRef.posX = pos[0];
+    cameraRef.posY = pos[1];
+    cameraRef.posZ = pos[2];
+    cameraRef.forwardX = forward.x;
+    cameraRef.forwardY = forward.y;
+    cameraRef.forwardZ = forward.z;
 
     const hasFuel = shipState.fuel > 0;
     let thrust: Vector3Tuple = [0, 0, 0];
@@ -136,31 +163,26 @@ export default function ShipController() {
       ? PHYSICS.ACCELERATION * PHYSICS.BOOST_MULTIPLIER
       : PHYSICS.ACCELERATION;
 
-    if (keys.current.has("KeyW") && hasFuel) {
+    if (keys.current.has("KeyW") && hasFuel)
       thrust = applyThrust(thrust, [forward.x, forward.y, forward.z], acc, dt);
-    }
-    if (keys.current.has("KeyS") && hasFuel) {
+    if (keys.current.has("KeyS") && hasFuel)
       thrust = applyThrust(
         thrust,
         [-forward.x, -forward.y, -forward.z],
         acc * 0.6,
         dt,
       );
-    }
-    if (keys.current.has("KeyA") && hasFuel) {
+    if (keys.current.has("KeyA") && hasFuel)
       thrust = applyThrust(
         thrust,
         [-right.x, -right.y, -right.z],
         acc * 0.5,
         dt,
       );
-    }
-    if (keys.current.has("KeyD") && hasFuel) {
+    if (keys.current.has("KeyD") && hasFuel)
       thrust = applyThrust(thrust, [right.x, right.y, right.z], acc * 0.5, dt);
-    }
 
     const isThrusting = thrust[0] !== 0 || thrust[1] !== 0 || thrust[2] !== 0;
-
     if (isThrusting && hasFuel) {
       const fuelRate = isBoosting
         ? PHYSICS.BOOST_FUEL_RATE
@@ -182,7 +204,6 @@ export default function ShipController() {
     vel = clampVelocity(vel, maxSpeed);
     velocityRef.current = vel;
 
-    const pos = positionRef.current;
     const newPos: Vector3Tuple = [
       pos[0] + vel[0] * dt,
       pos[1] + vel[1] * dt,

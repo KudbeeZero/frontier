@@ -31,21 +31,30 @@ body {
   height: 100%;
 }
 
-/* ============================================================
-   LANDSCAPE LOCK
-   On portrait devices rotate the entire page 90deg so the
-   game always renders in landscape.
-   ============================================================ */
-@media screen and (orientation: portrait) {
-  html {
-    transform: rotate(90deg);
-    transform-origin: left top;
-    width: 100vh;
-    height: 100vw;
+/* ── Landscape orientation lock ────────────────────────────────── */
+@media screen and (max-width: 768px) and (orientation: portrait) {
+  body::before {
+    content: "Please rotate your device to landscape mode";
     position: fixed;
-    top: 100%;
+    top: 0;
     left: 0;
-    overflow: hidden;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    color: #00ffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-size: 1.5rem;
+    font-family: monospace;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  /* Hide game content in portrait */
+  #root {
+    display: none;
   }
 }
 
@@ -147,4 +156,19 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 230, 255, 0.6);
+}
+
+/* slide-in-bottom animation for WeaponPanel */
+@keyframes slide-in-bottom {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.animate-slide-in-bottom {
+  animation: slide-in-bottom 0.4s ease-out both;
 }

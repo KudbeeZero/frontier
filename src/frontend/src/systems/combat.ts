@@ -1,61 +1,64 @@
-import type { Enemy, WeaponConfig } from '../types/game'
-import { WEAPON_MAP } from '../config/weapons'
-import { useEnemyStore } from '../stores/useEnemyStore'
-import { useWeaponsStore } from '../stores/useWeaponsStore'
-import { useGameStore } from '../stores/useGameStore'
+import * as THREE from "three";
+import { WEAPON_MAP } from "../config/weapons";
+import { useProjectileStore } from "../stores/useProjectileStore";
+import { useWeaponsStore } from "../stores/useWeaponsStore";
+import { cameraRef } from "../utils/cameraRef";
 
 /**
- * Attempt to fire the active weapon at a target.
- * Handles cooldown checks, ammo consumption, and damage application.
- * Returns true if the shot was fired.
+ * Called by the FIRE button or spacebar.
+ * Spawns a visual projectile in the camera forward direction.
  */
-export function fireWeapon(targetId: string | null): boolean {
-  const { activeWeapon, cooldowns, consumeAmmo, setCooldown } = useWeaponsStore.getState()
-  const weapon: WeaponConfig | undefined = WEAPON_MAP[activeWeapon]
+export function handleFireButton(): boolean {
+  const { activeWeapon, cooldowns, setCooldown, consumeAmmo, ammo } =
+    useWeaponsStore.getState();
 
-  if (!weapon) return false
-  if ((cooldowns[activeWeapon] ?? 0) > 0) return false
+  // Check cooldown
+  if ((cooldowns[activeWeapon] ?? 0) > 0) return false;
 
-  // Set cooldown
-  setCooldown(activeWeapon, 1 / weapon.fireRate)
-  consumeAmmo(activeWeapon)
+  // Check ammo (pulse has Infinity)
+  if ((ammo[activeWeapon] ?? 0) <= 0) return false;
 
-  // Apply damage to locked target if any
-  if (targetId) {
-    const { damageEnemy, addEnemy: _addEnemy } = useEnemyStore.getState()
-    damageEnemy(targetId, weapon.damage)
+  const weapon = WEAPON_MAP[activeWeapon];
+  if (!weapon) return false;
 
-    // Check if enemy was destroyed (store filters hp <= 0 automatically)
-    const enemy = useEnemyStore.getState().enemies.find((e) => e.id === targetId)
-    if (!enemy) {
-      onEnemyKilled(targetId)
+  // Spawn projectile from current camera position in camera forward direction
+  const { addProjectile } = useProjectileStore.getState();
+  addProjectile({
+    position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
+    direction: [cameraRef.forwardX, cameraRef.forwardY, cameraRef.forwardZ],
+    speed: weapon.speed,
+    damage: weapon.damage,
+    weaponType: activeWeapon,
+    color: weapon.color,
+    maxLifetime: 4,
+  });
+
+  // Spacebar fires burst of 3 for pulse
+  if (activeWeapon === "pulse") {
+    const spread = 0.04;
+    for (let i = 0; i < 2; i++) {
+      const offsetX = (Math.random() - 0.5) * spread;
+      const offsetY = (Math.random() - 0.5) * spread;
+      const dir = new THREE.Vector3(
+        cameraRef.forwardX + offsetX,
+        cameraRef.forwardY + offsetY,
+        cameraRef.forwardZ,
+      ).normalize();
+      addProjectile({
+        position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
+        direction: [dir.x, dir.y, dir.z],
+        speed: weapon.speed,
+        damage: Math.floor(weapon.damage * 0.5),
+        weaponType: activeWeapon,
+        color: weapon.color,
+        maxLifetime: 3,
+      });
     }
   }
 
-  return true
-}
+  // Apply cooldown and consume ammo
+  setCooldown(activeWeapon, 1 / weapon.fireRate);
+  consumeAmmo(activeWeapon);
 
-function onEnemyKilled(_id: string) {
-  // Enemy config lookup would go here for reward/score
-  // For now, grant a flat reward
-  useGameStore.getState().addScore(100)
-  useGameStore.getState().addCredits(25)
-}
-
-/**
- * Check if any enemies have reached Earth (phi/theta within contact radius)
- * and apply damage if so.
- */
-export function processEnemyReachEarth(enemies: Enemy[], contactRadius: number): void {
-  const { removeEnemy } = useEnemyStore.getState()
-  const { damageEarth } = useGameStore.getState()
-
-  for (const enemy of enemies) {
-    // Enemies at distance < contactRadius from origin have reached Earth
-    const dist = Math.sqrt(enemy.theta * enemy.theta + enemy.phi * enemy.phi)
-    if (dist < contactRadius) {
-      damageEarth(enemy.damage)
-      removeEnemy(enemy.id)
-    }
-  }
+  return true;
 }

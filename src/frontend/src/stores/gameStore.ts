@@ -11,6 +11,7 @@ interface GameState {
   showHUD: boolean;
   gameMode: GameMode;
   credits: number;
+  score: number;
   discoveredLocations: Location[];
   notifications: Notification[];
   gameStarted: boolean;
@@ -23,6 +24,7 @@ interface GameState {
   toggleHUD: () => void;
   setGameMode: (mode: GameMode) => void;
   addCredits: (amount: number) => void;
+  addScore: (amount: number) => void;
   discoverLocation: (location: Location) => void;
   addNotification: (message: string, type: NotificationType) => void;
   removeNotification: (id: string) => void;
@@ -38,6 +40,7 @@ export const useGameStore = create<GameState>((set) => ({
   showHUD: true,
   gameMode: "exploration",
   credits: 0,
+  score: 0,
   discoveredLocations: [],
   notifications: [],
   gameStarted: false,
@@ -50,6 +53,7 @@ export const useGameStore = create<GameState>((set) => ({
   toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
   setGameMode: (mode) => set({ gameMode: mode }),
   addCredits: (amount) => set((s) => ({ credits: s.credits + amount })),
+  addScore: (amount) => set((s) => ({ score: s.score + amount })),
   discoverLocation: (location) =>
     set((s) => ({
       discoveredLocations: s.discoveredLocations.some(

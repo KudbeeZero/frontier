@@ -1,6 +1,6 @@
-import type { Enemy, OrbitalPosition } from '../types/game'
-import { angularDistance } from './orbital'
-import { RADAR_RANGE } from '../config/constants'
+import { RADAR_RANGE } from "../config/constants";
+import type { Enemy, OrbitalPosition } from "../types/game";
+import { angularDistance } from "./orbital";
 
 /**
  * Find the nearest enemy to the player's current position.
@@ -10,18 +10,21 @@ export function findNearestEnemy(
   playerPos: OrbitalPosition,
   enemies: Enemy[],
 ): Enemy | null {
-  let nearest: Enemy | null = null
-  let nearestDist = RADAR_RANGE
+  let nearest: Enemy | null = null;
+  let nearestDist = RADAR_RANGE;
 
   for (const enemy of enemies) {
-    const dist = angularDistance(playerPos, { theta: enemy.theta, phi: enemy.phi })
+    const dist = angularDistance(playerPos, {
+      theta: enemy.theta,
+      phi: enemy.phi,
+    });
     if (dist < nearestDist) {
-      nearestDist = dist
-      nearest = enemy
+      nearestDist = dist;
+      nearest = enemy;
     }
   }
 
-  return nearest
+  return nearest;
 }
 
 /**
@@ -33,9 +36,9 @@ export function getEnemiesInRange(
   range: number,
 ): Enemy[] {
   return enemies.filter((e) => {
-    const dist = angularDistance(playerPos, { theta: e.theta, phi: e.phi })
-    return dist <= range
-  })
+    const dist = angularDistance(playerPos, { theta: e.theta, phi: e.phi });
+    return dist <= range;
+  });
 }
 
 /**
@@ -46,9 +49,9 @@ export function getDirectionTo(
   source: OrbitalPosition,
   target: OrbitalPosition,
 ): { dTheta: number; dPhi: number } {
-  const dTheta = target.theta - source.theta
-  const dPhi = target.phi - source.phi
-  const mag = Math.sqrt(dTheta * dTheta + dPhi * dPhi)
-  if (mag === 0) return { dTheta: 0, dPhi: 0 }
-  return { dTheta: dTheta / mag, dPhi: dPhi / mag }
+  const dTheta = target.theta - source.theta;
+  const dPhi = target.phi - source.phi;
+  const mag = Math.sqrt(dTheta * dTheta + dPhi * dPhi);
+  if (mag === 0) return { dTheta: 0, dPhi: 0 };
+  return { dTheta: dTheta / mag, dPhi: dPhi / mag };
 }

@@ -1,131 +1,41 @@
 import { create } from "zustand";
-import { ENEMY_TYPES, type EnemyTypeId } from "../config/enemies";
-
-export interface Enemy {
-  id: string;
-  type: EnemyTypeId;
-  position: { lat: number; lng: number };
-  health: number;
-  maxHealth: number;
-  status: "active" | "destroyed";
-  destroyedAt?: number;
-}
-
-export interface Impact {
-  id: string;
-  position: [number, number, number];
-  color: string;
-  spawnedAt: number;
-}
+import type { Enemy } from "../types/game";
 
 interface EnemyState {
   enemies: Enemy[];
-  score: number;
-  enemiesDestroyed: number;
-  impacts: Impact[];
+  lockedTarget: string | null;
+  wave: number;
 
-  spawnEnemy: () => void;
-  damageEnemy: (
-    id: string,
-    damage: number,
-    hitPos: [number, number, number],
-  ) => void;
-  removeImpact: (id: string) => void;
-  tick: (deltaMs: number) => void;
+  addEnemy: (enemy: Enemy) => void;
+  removeEnemy: (id: string) => void;
+  damageEnemy: (id: string, amount: number) => void;
+  setLockedTarget: (id: string | null) => void;
+  clearEnemies: () => void;
+  incrementWave: () => void;
 }
 
-let nextEnemyId = 1;
-let spawnTimer = 0;
-
-export const useEnemyStore = create<EnemyState>((set, get) => ({
+export const useEnemyStore = create<EnemyState>((set) => ({
   enemies: [],
-  score: 0,
-  enemiesDestroyed: 0,
-  impacts: [],
+  lockedTarget: null,
+  wave: 1,
 
-  spawnEnemy: () => {
-    const types = Object.keys(ENEMY_TYPES) as EnemyTypeId[];
-    const type = types[Math.floor(Math.random() * types.length)];
-    const config = ENEMY_TYPES[type];
+  addEnemy: (enemy) => set((state) => ({ enemies: [...state.enemies, enemy] })),
 
-    const enemy: Enemy = {
-      id: `SAT-${String(nextEnemyId++).padStart(3, "0")}`,
-      type,
-      position: {
-        lat: (Math.random() - 0.5) * 160,
-        lng: (Math.random() - 0.5) * 360,
-      },
-      health: config.health,
-      maxHealth: config.health,
-      status: "active",
-    };
+  removeEnemy: (id) =>
+    set((state) => ({ enemies: state.enemies.filter((e) => e.id !== id) })),
 
-    set((state) => ({ enemies: [...state.enemies, enemy] }));
-    console.log(`🛸 Spawned ${config.name}`);
-  },
+  damageEnemy: (id, amount) =>
+    set((state) => ({
+      enemies: state.enemies
+        .map((e) =>
+          e.id === id ? { ...e, hp: Math.max(0, e.hp - amount) } : e,
+        )
+        .filter((e) => e.hp > 0),
+    })),
 
-  damageEnemy: (id, damage, hitPos) => {
-    const state = get();
-    const enemy = state.enemies.find((e) => e.id === id);
-    if (!enemy || enemy.status !== "active") return;
+  setLockedTarget: (id) => set({ lockedTarget: id }),
 
-    const newHealth = Math.max(0, enemy.health - damage);
-    const destroyed = newHealth <= 0;
-    const config = ENEMY_TYPES[enemy.type];
+  clearEnemies: () => set({ enemies: [], lockedTarget: null }),
 
-    // Add impact flash
-    const impact: Impact = {
-      id: `impact_${Date.now()}_${Math.random()}`,
-      position: hitPos,
-      color: config.color,
-      spawnedAt: Date.now(),
-    };
-
-    set((s) => ({
-      enemies: s.enemies.map((e) =>
-        e.id === id
-          ? {
-              ...e,
-              health: newHealth,
-              status: destroyed ? "destroyed" : "active",
-              destroyedAt: destroyed ? Date.now() : undefined,
-            }
-          : e,
-      ),
-      impacts: [...s.impacts, impact],
-      score: destroyed ? s.score + config.points : s.score,
-      enemiesDestroyed: destroyed ? s.enemiesDestroyed + 1 : s.enemiesDestroyed,
-    }));
-
-    if (destroyed)
-      console.log(`💥 Destroyed ${config.name}! +${config.points}`);
-  },
-
-  removeImpact: (id) => {
-    set((s) => ({ impacts: s.impacts.filter((i) => i.id !== id) }));
-  },
-
-  tick: (deltaMs) => {
-    const state = get();
-    const now = Date.now();
-
-    // Remove destroyed enemies after 1.2s
-    const enemies = state.enemies.filter(
-      (e) =>
-        e.status === "active" ||
-        (e.destroyedAt != null && now - e.destroyedAt < 1200),
-    );
-
-    // Spawn timer
-    spawnTimer += deltaMs;
-    if (
-      spawnTimer >= 12000 &&
-      enemies.filter((e) => e.status === "active").length < 8
-    ) {
-      state.spawnEnemy();
-      spawnTimer = 0;
-    }
-
-    set({ enemies });
-  },
+  incrementWave: () => set((state) => ({ wave: state.wave + 1 })),
 }));

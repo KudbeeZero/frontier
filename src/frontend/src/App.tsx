@@ -1,47 +1,70 @@
-import { Canvas } from "@react-three/fiber";
-import { CameraController } from "./components/game/CameraController";
-import { EarthGlobe } from "./components/game/EarthGlobe";
-import { EnemyLayer } from "./components/game/EnemyLayer";
-import { HUD } from "./components/game/HUD";
-import { ProjectileSystem } from "./components/game/ProjectileSystem";
-import { SpaceBackground } from "./components/game/SpaceBackground";
-import { TargetingReticle } from "./components/game/TargetingReticle";
+import { useEffect } from "react";
+import { MobileControls } from "./components/Controls/MobileControls";
+import GameCanvas from "./components/Game/GameCanvas";
+import { StoryPanel } from "./components/Story/StoryPanel";
+import { PanelRouter } from "./components/UI/PanelRouter";
+import PauseMenu from "./components/UI/PauseMenu";
+import StartScreen from "./components/UI/StartScreen";
+import { useDeviceStore } from "./stores/deviceStore";
+import { useGameStore } from "./stores/gameStore";
+import { useInventoryStore } from "./stores/inventoryStore";
+import { useShipStore } from "./stores/shipStore";
+import { useStoryStore } from "./stores/storyStore";
+import { SAVE_KEY } from "./utils/constants";
+import { speakText } from "./utils/voiceNarration";
 
-function App() {
+export default function App() {
+  const gameStarted = useGameStore((s) => s.gameStarted);
+  const showPauseMenu = useGameStore((s) => s.showPauseMenu);
+  const { triggerEvent } = useStoryStore();
+  const { detectDevice } = useDeviceStore();
+
+  // Device detection
+  useEffect(() => {
+    detectDevice();
+    window.addEventListener("resize", detectDevice);
+    return () => window.removeEventListener("resize", detectDevice);
+  }, [detectDevice]);
+
+  // Welcome narration and opening story event once game starts
+  useEffect(() => {
+    if (!gameStarted) return;
+    speakText("Welcome, Commander. Initializing ship systems.");
+    const timer = setTimeout(() => {
+      triggerEvent("p1_systems_damaged");
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [gameStarted, triggerEvent]);
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    if (!gameStarted) return;
+    const interval = setInterval(() => {
+      const ship = useShipStore.getState();
+      const inv = useInventoryStore.getState();
+      const saveData = {
+        hull: ship.hull,
+        fuel: ship.fuel,
+        credits: useGameStore.getState().credits,
+        resources: inv.resources,
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [gameStarted]);
+
   return (
-    <div className="w-full h-full relative">
-      <Canvas
-        camera={{ fov: 60, near: 0.05, far: 1000, position: [3, 0, 0] }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: false }}
-      >
-        {/* Brighter ambient so Earth dayside is well-lit */}
-        <ambientLight intensity={0.45} />
-        {/* Main sun directional light */}
-        <directionalLight
-          position={[10, 8, 5]}
-          intensity={2.8}
-          color="#fff5e0"
-          castShadow={false}
-        />
-        {/* Subtle fill from opposite side */}
-        <directionalLight
-          position={[-8, -4, -5]}
-          intensity={0.25}
-          color="#3366aa"
-        />
-
-        <SpaceBackground />
-        <EarthGlobe />
-        <TargetingReticle />
-        <EnemyLayer />
-        <ProjectileSystem />
-        <CameraController />
-      </Canvas>
-
-      <HUD />
+    <div className="w-screen h-screen overflow-hidden bg-[#081626]">
+      {!gameStarted && <StartScreen />}
+      {gameStarted && (
+        <>
+          <GameCanvas />
+          {showPauseMenu && <PauseMenu />}
+        </>
+      )}
+      <StoryPanel />
+      <PanelRouter />
+      <MobileControls />
     </div>
   );
 }
-
-export default App;

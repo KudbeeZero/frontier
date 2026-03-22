@@ -1,49 +1,35 @@
-export const WEAPONS = {
-  pulse: {
-    id: "pulse",
-    name: "PULSE CANNON",
-    shortName: "PULSE",
-    damage: 25,
-    cooldown: 1200,
-    color: "#00ffcc",
-    glowColor: "rgba(0,255,204,0.4)",
-    description: "Rapid-fire energy weapon",
-  },
-  railgun: {
-    id: "railgun",
-    name: "RAIL GUN",
-    shortName: "RAIL",
-    damage: 50,
-    cooldown: 900,
-    ammo: 5,
-    maxAmmo: 5,
-    reloadTime: 3000,
-    color: "#44aaff",
-    glowColor: "rgba(68,170,255,0.4)",
-    description: "High-damage kinetic rounds",
-  },
-  missile: {
-    id: "missile",
-    name: "HEAT MISSILE",
-    shortName: "MSLE",
-    damage: 100,
-    cooldown: 4500,
-    color: "#ff6644",
-    glowColor: "rgba(255,102,68,0.4)",
-    requiresLock: true,
-    description: "Explosive seeking missile",
-  },
-  emp: {
-    id: "emp",
-    name: "EMP BURST",
-    shortName: "EMP",
-    damage: 10,
-    cooldown: 5000,
-    color: "#ff8800",
-    glowColor: "rgba(255,136,0,0.4)",
-    stunDuration: 3000,
-    description: "Disables enemy systems",
-  },
-} as const;
+import type { WeaponConfig } from "../types/game";
 
-export type WeaponId = keyof typeof WEAPONS;
+export const WEAPONS: WeaponConfig[] = [
+  {
+    id: "pulse",
+    label: "PULSE",
+    damage: 15,
+    fireRate: 5,
+    energyCost: 5,
+    speed: 20,
+    color: "#00ffff",
+  },
+  {
+    id: "rail",
+    label: "RAIL",
+    damage: 80,
+    fireRate: 0.8,
+    energyCost: 20,
+    speed: 60,
+    color: "#ffffff",
+  },
+  {
+    id: "missile",
+    label: "MISSILE",
+    damage: 120,
+    fireRate: 0.5,
+    energyCost: 35,
+    speed: 12,
+    color: "#ff8800",
+  },
+];
+
+export const WEAPON_MAP = Object.fromEntries(
+  WEAPONS.map((w) => [w.id, w]),
+) as Record<string, WeaponConfig>;
