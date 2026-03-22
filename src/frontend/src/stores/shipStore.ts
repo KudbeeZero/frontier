@@ -30,6 +30,10 @@ interface ShipState {
   consumeFuel: (amount: number) => void;
   refuel: (amount: number) => void;
   repairHull: (amount: number) => void;
+  updateOxygen: (delta: number) => void;
+  updateHull: (delta: number) => void;
+  updatePower: (delta: number) => void;
+  updateFuel: (delta: number) => void;
   addCargo: (weight: number) => void;
   removeCargo: (weight: number) => void;
   setMining: (isMining: boolean, targetId?: string | null) => void;
@@ -79,6 +83,14 @@ export const useShipStore = create<ShipState>((set) => ({
     set((s) => ({ fuel: Math.min(s.maxFuel, s.fuel + amount) })),
   repairHull: (amount) =>
     set((s) => ({ hull: Math.min(s.maxHull, s.hull + amount) })),
+  updateOxygen: (delta) =>
+    set((s) => ({ oxygen: Math.max(0, Math.min(100, s.oxygen + delta)) })),
+  updateHull: (delta) =>
+    set((s) => ({ hull: Math.max(0, Math.min(s.maxHull, s.hull + delta)) })),
+  updatePower: (delta) =>
+    set((s) => ({ power: Math.max(0, Math.min(100, s.power + delta)) })),
+  updateFuel: (delta) =>
+    set((s) => ({ fuel: Math.max(0, Math.min(s.maxFuel, s.fuel + delta)) })),
   addCargo: (weight) => set((s) => ({ cargo: s.cargo + weight })),
   removeCargo: (weight) =>
     set((s) => ({ cargo: Math.max(0, s.cargo - weight) })),

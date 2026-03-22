@@ -1,9 +1,16 @@
 import { create } from "zustand";
+import { useShipStore } from "./shipStore";
 
 export interface StoryChoice {
   id: string;
   text: string;
   nextEvent?: string;
+  effects?: {
+    oxygen?: number;
+    hull?: number;
+    power?: number;
+    fuel?: number;
+  };
 }
 
 export interface StoryEvent {
@@ -29,6 +36,7 @@ const STORY_EVENTS: Record<string, StoryEvent> = {
         id: "repair",
         text: "Begin emergency repairs",
         nextEvent: "p1_repair_start",
+        effects: { hull: 15, power: -10 },
       },
       {
         id: "ignore",
@@ -47,11 +55,13 @@ const STORY_EVENTS: Record<string, StoryEvent> = {
         id: "recycler",
         text: "Fix the oxygen recycler first",
         nextEvent: undefined,
+        effects: { oxygen: 20, power: -15 },
       },
       {
         id: "propulsion",
         text: "Propulsion comes first",
         nextEvent: undefined,
+        effects: { fuel: 20, power: -10 },
       },
       {
         id: "comms",
@@ -92,6 +102,15 @@ export const useStoryStore = create<StoryState>((set) => ({
     if (event) set({ currentEvent: event, isVisible: true });
   },
   selectChoice: (choice: StoryChoice) => {
+    // Apply resource effects to ship
+    const effects = choice.effects ?? {};
+    const ship = useShipStore.getState();
+    if (effects.oxygen) ship.updateOxygen(effects.oxygen);
+    if (effects.hull) ship.updateHull(effects.hull);
+    if (effects.power) ship.updatePower(effects.power);
+    if (effects.fuel) ship.updateFuel(effects.fuel);
+
+    // Navigate to next event or dismiss
     if (choice.nextEvent) {
       const next = STORY_EVENTS[choice.nextEvent];
       if (next) {

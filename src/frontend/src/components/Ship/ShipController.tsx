@@ -2,10 +2,12 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useGameStore } from "../../stores/gameStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useShipStore } from "../../stores/shipStore";
 import type { Vector3Tuple } from "../../types/game";
 import { PHYSICS } from "../../utils/constants";
 import { applyDrag, applyThrust, clampVelocity } from "../../utils/physics";
+import { touchCameraMovement } from "../../utils/touchCamera";
 
 export default function ShipController() {
   const { camera, gl } = useThree();
@@ -86,10 +88,20 @@ export default function ShipController() {
 
     const dt = Math.min(delta, 0.05);
     const shipState = useShipStore.getState();
+    const settings = useSettingsStore.getState();
 
-    const sensitivity = 0.002;
-    yaw.current -= mouseMovement.current.x * sensitivity;
-    pitch.current -= mouseMovement.current.y * sensitivity;
+    const mouseSensitivity = 0.002;
+    const touchSensitivity = 0.0015 * settings.cameraSensitivity;
+
+    yaw.current -= mouseMovement.current.x * mouseSensitivity;
+    pitch.current -= mouseMovement.current.y * mouseSensitivity;
+
+    // Apply touch camera input
+    yaw.current -= touchCameraMovement.x * touchSensitivity;
+    pitch.current -= touchCameraMovement.y * touchSensitivity;
+    touchCameraMovement.x = 0;
+    touchCameraMovement.y = 0;
+
     pitch.current = Math.max(
       -Math.PI / 2.5,
       Math.min(Math.PI / 2.5, pitch.current),

@@ -1,7 +1,16 @@
+import { useEffect } from "react";
 import { useStoryStore } from "../../stores/storyStore";
+import { speakText } from "../../utils/voiceNarration";
 
 export function StoryEventPanel() {
   const { currentEvent, isVisible, selectChoice, dismiss } = useStoryStore();
+
+  // Speak A.E.G.I.S. dialogue when a new event appears
+  useEffect(() => {
+    if (currentEvent && isVisible) {
+      speakText(currentEvent.dialogue);
+    }
+  }, [currentEvent, isVisible]);
 
   if (!currentEvent) return null;
 

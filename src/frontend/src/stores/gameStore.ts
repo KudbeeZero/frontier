@@ -17,6 +17,7 @@ interface GameState {
   showInventory: boolean;
   showCrafting: boolean;
   showPauseMenu: boolean;
+  nearestTargetDistance: number;
 
   setPaused: (paused: boolean) => void;
   toggleHUD: () => void;
@@ -29,6 +30,7 @@ interface GameState {
   toggleInventory: () => void;
   toggleCrafting: () => void;
   togglePauseMenu: () => void;
+  setNearestTargetDistance: (dist: number) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -42,6 +44,7 @@ export const useGameStore = create<GameState>((set) => ({
   showInventory: false,
   showCrafting: false,
   showPauseMenu: false,
+  nearestTargetDistance: Number.POSITIVE_INFINITY,
 
   setPaused: (paused) => set({ isPaused: paused }),
   toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
@@ -75,4 +78,5 @@ export const useGameStore = create<GameState>((set) => ({
   toggleCrafting: () =>
     set((s) => ({ showCrafting: !s.showCrafting, showInventory: false })),
   togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu })),
+  setNearestTargetDistance: (dist) => set({ nearestTargetDistance: dist }),
 }));

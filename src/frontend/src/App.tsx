@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { MobileControls } from "./components/Controls/MobileControls";
 import GameCanvas from "./components/Game/GameCanvas";
 import { StoryEventPanel } from "./components/Story/StoryEventPanel";
 import PauseMenu from "./components/UI/PauseMenu";
@@ -9,6 +10,7 @@ import { useInventoryStore } from "./stores/inventoryStore";
 import { useShipStore } from "./stores/shipStore";
 import { useStoryStore } from "./stores/storyStore";
 import { SAVE_KEY } from "./utils/constants";
+import { speakText } from "./utils/voiceNarration";
 
 export default function App() {
   const gameStarted = useGameStore((s) => s.gameStarted);
@@ -23,9 +25,10 @@ export default function App() {
     return () => window.removeEventListener("resize", detectDevice);
   }, [detectDevice]);
 
-  // Trigger opening story event once game starts
+  // Welcome narration and opening story event once game starts
   useEffect(() => {
     if (!gameStarted) return;
+    speakText("Welcome, Commander. Initializing ship systems.");
     const timer = setTimeout(() => {
       triggerEvent("p1_systems_damaged");
     }, 3000);
@@ -59,6 +62,7 @@ export default function App() {
         </>
       )}
       <StoryEventPanel />
+      <MobileControls />
     </div>
   );
 }

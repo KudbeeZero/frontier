@@ -16,12 +16,17 @@ export default function GameCanvas() {
   const [targetDistance, setTargetDistance] = useState(
     Number.POSITIVE_INFINITY,
   );
-  const { showInventory, showCrafting } = useGameStore();
+  const { showInventory, showCrafting, setNearestTargetDistance } =
+    useGameStore();
 
-  const handleTargetChange = useCallback((id: string | null, dist: number) => {
-    setTargetId(id);
-    setTargetDistance(dist);
-  }, []);
+  const handleTargetChange = useCallback(
+    (id: string | null, dist: number) => {
+      setTargetId(id);
+      setTargetDistance(dist);
+      setNearestTargetDistance(dist);
+    },
+    [setNearestTargetDistance],
+  );
 
   return (
     <div className="w-full h-full relative">
