@@ -13970,6 +13970,521 @@ function checkDCE() {
 }
 var clientExports = client.exports;
 const ReactDOM = /* @__PURE__ */ getDefaultExportFromCjs(clientExports);
+const createStoreImpl = (createState) => {
+  let state2;
+  const listeners = /* @__PURE__ */ new Set();
+  const setState = (partial, replace) => {
+    const nextState = typeof partial === "function" ? partial(state2) : partial;
+    if (!Object.is(nextState, state2)) {
+      const previousState = state2;
+      state2 = (replace != null ? replace : typeof nextState !== "object" || nextState === null) ? nextState : Object.assign({}, state2, nextState);
+      listeners.forEach((listener) => listener(state2, previousState));
+    }
+  };
+  const getState = () => state2;
+  const getInitialState = () => initialState;
+  const subscribe = (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  const api = { setState, getState, getInitialState, subscribe };
+  const initialState = state2 = createState(setState, getState, api);
+  return api;
+};
+const createStore$1 = (createState) => createState ? createStoreImpl(createState) : createStoreImpl;
+const identity$1 = (arg) => arg;
+function useStore$1(api, selector = identity$1) {
+  const slice = React$4.useSyncExternalStore(
+    api.subscribe,
+    React$4.useCallback(() => selector(api.getState()), [api, selector]),
+    React$4.useCallback(() => selector(api.getInitialState()), [api, selector])
+  );
+  React$4.useDebugValue(slice);
+  return slice;
+}
+const createImpl = (createState) => {
+  const api = createStore$1(createState);
+  const useBoundStore = (selector) => useStore$1(api, selector);
+  Object.assign(useBoundStore, api);
+  return useBoundStore;
+};
+const create = (createState) => createState ? createImpl(createState) : createImpl;
+const useDeviceStore = create((set) => ({
+  device: "desktop",
+  isMobile: false,
+  detectDevice: () => {
+    const w = window.innerWidth;
+    const device = w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
+    set({ device, isMobile: device === "mobile" || device === "tablet" });
+  }
+}));
+const useGameStore = create((set) => ({
+  isPaused: false,
+  showHUD: true,
+  gameMode: "exploration",
+  credits: 0,
+  discoveredLocations: [],
+  notifications: [],
+  gameStarted: false,
+  showInventory: false,
+  showCrafting: false,
+  showPauseMenu: false,
+  nearestTargetDistance: Number.POSITIVE_INFINITY,
+  setPaused: (paused) => set({ isPaused: paused }),
+  toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
+  setGameMode: (mode) => set({ gameMode: mode }),
+  addCredits: (amount) => set((s) => ({ credits: s.credits + amount })),
+  discoverLocation: (location2) => set((s) => ({
+    discoveredLocations: s.discoveredLocations.some(
+      (l2) => l2.id === location2.id
+    ) ? s.discoveredLocations : [...s.discoveredLocations, location2]
+  })),
+  addNotification: (message, type) => {
+    const id = `notif-${Date.now()}-${Math.random()}`;
+    set((s) => ({
+      notifications: [
+        ...s.notifications,
+        { id, message, type, timestamp: Date.now() }
+      ]
+    }));
+    setTimeout(() => {
+      useGameStore.getState().removeNotification(id);
+    }, 4e3);
+  },
+  removeNotification: (id) => set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
+  setGameStarted: (started) => set({ gameStarted: started }),
+  toggleInventory: () => set((s) => ({ showInventory: !s.showInventory, showCrafting: false })),
+  toggleCrafting: () => set((s) => ({ showCrafting: !s.showCrafting, showInventory: false })),
+  togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu })),
+  setNearestTargetDistance: (dist) => set({ nearestTargetDistance: dist })
+}));
+function createJSONStorage(getStorage, options) {
+  let storage;
+  try {
+    storage = getStorage();
+  } catch (e) {
+    return;
+  }
+  const persistStorage = {
+    getItem: (name) => {
+      var _a2;
+      const parse = (str2) => {
+        if (str2 === null) {
+          return null;
+        }
+        return JSON.parse(str2, void 0);
+      };
+      const str = (_a2 = storage.getItem(name)) != null ? _a2 : null;
+      if (str instanceof Promise) {
+        return str.then(parse);
+      }
+      return parse(str);
+    },
+    setItem: (name, newValue) => storage.setItem(name, JSON.stringify(newValue, void 0)),
+    removeItem: (name) => storage.removeItem(name)
+  };
+  return persistStorage;
+}
+const toThenable = (fn) => (input) => {
+  try {
+    const result = fn(input);
+    if (result instanceof Promise) {
+      return result;
+    }
+    return {
+      then(onFulfilled) {
+        return toThenable(onFulfilled)(result);
+      },
+      catch(_onRejected) {
+        return this;
+      }
+    };
+  } catch (e) {
+    return {
+      then(_onFulfilled) {
+        return this;
+      },
+      catch(onRejected) {
+        return toThenable(onRejected)(e);
+      }
+    };
+  }
+};
+const persistImpl = (config, baseOptions) => (set, get, api) => {
+  let options = {
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state2) => state2,
+    version: 0,
+    merge: (persistedState, currentState) => ({
+      ...currentState,
+      ...persistedState
+    }),
+    ...baseOptions
+  };
+  let hasHydrated = false;
+  const hydrationListeners = /* @__PURE__ */ new Set();
+  const finishHydrationListeners = /* @__PURE__ */ new Set();
+  let storage = options.storage;
+  if (!storage) {
+    return config(
+      (...args) => {
+        console.warn(
+          `[zustand persist middleware] Unable to update item '${options.name}', the given storage is currently unavailable.`
+        );
+        set(...args);
+      },
+      get,
+      api
+    );
+  }
+  const setItem = () => {
+    const state2 = options.partialize({ ...get() });
+    return storage.setItem(options.name, {
+      state: state2,
+      version: options.version
+    });
+  };
+  const savedSetState = api.setState;
+  api.setState = (state2, replace) => {
+    savedSetState(state2, replace);
+    return setItem();
+  };
+  const configResult = config(
+    (...args) => {
+      set(...args);
+      return setItem();
+    },
+    get,
+    api
+  );
+  api.getInitialState = () => configResult;
+  let stateFromStorage;
+  const hydrate = () => {
+    var _a2, _b2;
+    if (!storage) return;
+    hasHydrated = false;
+    hydrationListeners.forEach((cb) => {
+      var _a22;
+      return cb((_a22 = get()) != null ? _a22 : configResult);
+    });
+    const postRehydrationCallback = ((_b2 = options.onRehydrateStorage) == null ? void 0 : _b2.call(options, (_a2 = get()) != null ? _a2 : configResult)) || void 0;
+    return toThenable(storage.getItem.bind(storage))(options.name).then((deserializedStorageValue) => {
+      if (deserializedStorageValue) {
+        if (typeof deserializedStorageValue.version === "number" && deserializedStorageValue.version !== options.version) {
+          if (options.migrate) {
+            const migration = options.migrate(
+              deserializedStorageValue.state,
+              deserializedStorageValue.version
+            );
+            if (migration instanceof Promise) {
+              return migration.then((result) => [true, result]);
+            }
+            return [true, migration];
+          }
+          console.error(
+            `State loaded from storage couldn't be migrated since no migrate function was provided`
+          );
+        } else {
+          return [false, deserializedStorageValue.state];
+        }
+      }
+      return [false, void 0];
+    }).then((migrationResult) => {
+      var _a22;
+      const [migrated, migratedState] = migrationResult;
+      stateFromStorage = options.merge(
+        migratedState,
+        (_a22 = get()) != null ? _a22 : configResult
+      );
+      set(stateFromStorage, true);
+      if (migrated) {
+        return setItem();
+      }
+    }).then(() => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(stateFromStorage, void 0);
+      stateFromStorage = get();
+      hasHydrated = true;
+      finishHydrationListeners.forEach((cb) => cb(stateFromStorage));
+    }).catch((e) => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(void 0, e);
+    });
+  };
+  api.persist = {
+    setOptions: (newOptions) => {
+      options = {
+        ...options,
+        ...newOptions
+      };
+      if (newOptions.storage) {
+        storage = newOptions.storage;
+      }
+    },
+    clearStorage: () => {
+      storage == null ? void 0 : storage.removeItem(options.name);
+    },
+    getOptions: () => options,
+    rehydrate: () => hydrate(),
+    hasHydrated: () => hasHydrated,
+    onHydrate: (cb) => {
+      hydrationListeners.add(cb);
+      return () => {
+        hydrationListeners.delete(cb);
+      };
+    },
+    onFinishHydration: (cb) => {
+      finishHydrationListeners.add(cb);
+      return () => {
+        finishHydrationListeners.delete(cb);
+      };
+    }
+  };
+  if (!options.skipHydration) {
+    hydrate();
+  }
+  return stateFromStorage || configResult;
+};
+const persist = persistImpl;
+const useSettingsStore = create()(
+  persist(
+    (set) => ({
+      joystickSensitivity: 1,
+      cameraSensitivity: 1,
+      buttonSize: "medium",
+      hapticsEnabled: true,
+      setJoystickSensitivity: (v) => set({ joystickSensitivity: v }),
+      setCameraSensitivity: (v) => set({ cameraSensitivity: v }),
+      setButtonSize: (v) => set({ buttonSize: v }),
+      setHapticsEnabled: (v) => set({ hapticsEnabled: v })
+    }),
+    { name: "frontier-settings" }
+  )
+);
+const touchCameraMovement = { x: 0, y: 0 };
+const KEY_CODES = {
+  w: "KeyW",
+  a: "KeyA",
+  s: "KeyS",
+  d: "KeyD",
+  " ": "Space",
+  Shift: "ShiftLeft"
+};
+const MINE_PROXIMITY = 50;
+const BTN_SIZES = {
+  small: { joystick: "w-24 h-24", button: "w-16 h-16", text: "text-xs" },
+  medium: { joystick: "w-32 h-32", button: "w-20 h-20", text: "text-sm" },
+  large: { joystick: "w-40 h-40", button: "w-28 h-28", text: "text-base" }
+};
+const MobileControls = () => {
+  const isMobile = useDeviceStore((s) => s.isMobile);
+  const nearestTargetDistance = useGameStore((s) => s.nearestTargetDistance);
+  const { joystickSensitivity, buttonSize, hapticsEnabled } = useSettingsStore();
+  const [joystickPos, setJoystickPos] = reactExports.useState({ x: 0, y: 0 });
+  const joystickRef = reactExports.useRef(null);
+  const activeKeysRef = reactExports.useRef(/* @__PURE__ */ new Set());
+  const swipeTouchRef = reactExports.useRef(null);
+  if (!isMobile) return null;
+  const isNearAsteroid = nearestTargetDistance < MINE_PROXIMITY;
+  const sizes = BTN_SIZES[buttonSize];
+  const haptic = (duration = 20) => {
+    if (hapticsEnabled && navigator.vibrate) navigator.vibrate(duration);
+  };
+  const releaseKeys = (keys) => {
+    for (const key of keys) {
+      const code = KEY_CODES[key] ?? key;
+      if (activeKeysRef.current.has(code)) {
+        window.dispatchEvent(
+          new KeyboardEvent("keyup", { code, key, bubbles: true })
+        );
+        activeKeysRef.current.delete(code);
+      }
+    }
+  };
+  const pressKey = (key) => {
+    const code = KEY_CODES[key] ?? key;
+    if (!activeKeysRef.current.has(code)) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { code, key, bubbles: true })
+      );
+      activeKeysRef.current.add(code);
+    }
+  };
+  const handleJoystickMove = (e) => {
+    var _a2;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = (_a2 = joystickRef.current) == null ? void 0 : _a2.getBoundingClientRect();
+    if (!rect) return;
+    const rawX = touch.clientX - rect.left - rect.width / 2;
+    const rawY = touch.clientY - rect.top - rect.height / 2;
+    const maxDist = 40 * joystickSensitivity;
+    const dist = Math.hypot(rawX, rawY);
+    const clampedDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(rawY, rawX);
+    const x2 = Math.cos(angle) * clampedDist;
+    const y = Math.sin(angle) * clampedDist;
+    setJoystickPos({ x: x2, y });
+    const dirs = ["w", "a", "s", "d"];
+    if (clampedDist > 15) {
+      let key;
+      if (angle > -Math.PI / 4 && angle < Math.PI / 4) key = "d";
+      else if (angle >= Math.PI / 4 && angle < 3 * Math.PI / 4) key = "s";
+      else if (angle >= 3 * Math.PI / 4 || angle < -(3 * Math.PI) / 4)
+        key = "a";
+      else key = "w";
+      releaseKeys(dirs.filter((k2) => k2 !== key));
+      pressKey(key);
+    } else {
+      releaseKeys(dirs);
+    }
+  };
+  const handleJoystickEnd = () => {
+    setJoystickPos({ x: 0, y: 0 });
+    releaseKeys(["w", "a", "s", "d"]);
+  };
+  const handleSwipeStart = (e) => {
+    if (swipeTouchRef.current !== null) return;
+    const touch = e.changedTouches[0];
+    swipeTouchRef.current = {
+      id: touch.identifier,
+      startX: touch.clientX,
+      startY: touch.clientY
+    };
+  };
+  const handleSwipeMove = (e) => {
+    e.preventDefault();
+    if (!swipeTouchRef.current) return;
+    for (let i2 = 0; i2 < e.changedTouches.length; i2++) {
+      const touch = e.changedTouches[i2];
+      if (touch.identifier === swipeTouchRef.current.id) {
+        const dx = touch.clientX - swipeTouchRef.current.startX;
+        const dy = touch.clientY - swipeTouchRef.current.startY;
+        touchCameraMovement.x += dx * 0.8;
+        touchCameraMovement.y += dy * 0.8;
+        swipeTouchRef.current.startX = touch.clientX;
+        swipeTouchRef.current.startY = touch.clientY;
+        break;
+      }
+    }
+  };
+  const handleSwipeEnd = (e) => {
+    if (!swipeTouchRef.current) return;
+    for (let i2 = 0; i2 < e.changedTouches.length; i2++) {
+      if (e.changedTouches[i2].identifier === swipeTouchRef.current.id) {
+        swipeTouchRef.current = null;
+        break;
+      }
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      "data-ocid": "mobile_controls.panel",
+      className: "fixed inset-0 pointer-events-none z-40 select-none",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "absolute top-0 right-0 pointer-events-auto touch-none",
+            style: { width: "50%", height: "65%" },
+            onTouchStart: handleSwipeStart,
+            onTouchMove: handleSwipeMove,
+            onTouchEnd: handleSwipeEnd,
+            onTouchCancel: handleSwipeEnd
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute left-8 bottom-32 pointer-events-auto flex flex-col items-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              ref: joystickRef,
+              "data-ocid": "mobile_controls.canvas_target",
+              onTouchStart: handleJoystickMove,
+              onTouchMove: handleJoystickMove,
+              onTouchEnd: handleJoystickEnd,
+              onTouchCancel: handleJoystickEnd,
+              className: `relative ${sizes.joystick} rounded-full bg-cyan-500/20 border-2 border-cyan-500/40 touch-none`,
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "absolute w-12 h-12 rounded-full bg-cyan-500/80 border-2 border-cyan-400 shadow-lg shadow-cyan-500/50",
+                  style: {
+                    top: "50%",
+                    left: "50%",
+                    transform: `translate(calc(-50% + ${joystickPos.x}px), calc(-50% + ${joystickPos.y}px))`
+                  }
+                }
+              )
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-cyan-500/70 mt-2 font-mono tracking-widest", children: "MOVE" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute right-8 bottom-32 pointer-events-auto flex flex-col gap-4 items-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              "data-ocid": "mobile_controls.primary_button",
+              onTouchStart: (e) => {
+                e.preventDefault();
+                haptic(15);
+                pressKey(" ");
+              },
+              onTouchEnd: () => releaseKeys([" "]),
+              onTouchCancel: () => releaseKeys([" "]),
+              className: `${sizes.button} rounded-full bg-yellow-500/80 border-2 border-yellow-400 flex items-center justify-center font-bold ${sizes.text} font-mono tracking-widest active:scale-90 transition-transform shadow-lg shadow-yellow-500/30 touch-none`,
+              children: "BOOST"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              "data-ocid": "mobile_controls.secondary_button",
+              onTouchStart: (e) => {
+                e.preventDefault();
+                haptic(15);
+                pressKey("Shift");
+              },
+              onTouchEnd: () => releaseKeys(["Shift"]),
+              onTouchCancel: () => releaseKeys(["Shift"]),
+              className: `${sizes.button} rounded-full bg-red-500/80 border-2 border-red-400 flex items-center justify-center font-bold ${sizes.text} font-mono tracking-widest active:scale-90 transition-transform shadow-lg shadow-red-500/30 touch-none`,
+              children: "BRAKE"
+            }
+          )
+        ] }),
+        isNearAsteroid && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative flex items-center justify-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "absolute inline-flex h-32 w-32 rounded-full bg-cyan-400/20 animate-ping" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              className: "absolute inline-flex h-28 w-28 rounded-full bg-cyan-400/30 animate-ping",
+              style: { animationDelay: "0.15s" }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              "data-ocid": "mobile_controls.button",
+              onTouchStart: (e) => {
+                e.preventDefault();
+                haptic(30);
+                window.dispatchEvent(
+                  new MouseEvent("click", { bubbles: true })
+                );
+              },
+              className: "relative w-28 h-28 rounded-full bg-cyan-500/90 border-2 border-cyan-300 flex flex-col items-center justify-center font-bold text-base font-mono tracking-widest active:scale-90 transition-transform shadow-xl shadow-cyan-500/50 touch-none gap-1",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl", children: "⛏" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "MINE" })
+              ]
+            }
+          )
+        ] }) })
+      ]
+    }
+  );
+};
 /**
  * @license
  * Copyright 2010-2025 Three.js Authors
@@ -55395,31 +55910,9 @@ withSelector_production.useSyncExternalStoreWithSelector = function(subscribe, g
 }
 var withSelectorExports = withSelector.exports;
 const useSyncExternalStoreExports = /* @__PURE__ */ getDefaultExportFromCjs(withSelectorExports);
-const createStoreImpl = (createState) => {
-  let state2;
-  const listeners = /* @__PURE__ */ new Set();
-  const setState = (partial, replace) => {
-    const nextState = typeof partial === "function" ? partial(state2) : partial;
-    if (!Object.is(nextState, state2)) {
-      const previousState = state2;
-      state2 = (replace != null ? replace : typeof nextState !== "object" || nextState === null) ? nextState : Object.assign({}, state2, nextState);
-      listeners.forEach((listener) => listener(state2, previousState));
-    }
-  };
-  const getState = () => state2;
-  const getInitialState = () => initialState;
-  const subscribe = (listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
-  const api = { setState, getState, getInitialState, subscribe };
-  const initialState = state2 = createState(setState, getState, api);
-  return api;
-};
-const createStore$1 = (createState) => createState ? createStoreImpl(createState) : createStoreImpl;
 const { useSyncExternalStoreWithSelector } = useSyncExternalStoreExports;
-const identity$1 = (arg) => arg;
-function useStoreWithEqualityFn(api, selector = identity$1, equalityFn) {
+const identity = (arg) => arg;
+function useStoreWithEqualityFn(api, selector = identity, equalityFn) {
   const slice = useSyncExternalStoreWithSelector(
     api.subscribe,
     api.getState,
@@ -64328,16 +64821,16 @@ const createStore = (invalidate2, advance2) => {
   rootStore.subscribe((state3) => invalidate2(state3));
   return rootStore;
 };
-function useStore$1() {
+function useStore() {
   const store = reactExports.useContext(context);
   if (!store) throw new Error("R3F: Hooks can only be used within the Canvas component!");
   return store;
 }
 function useThree(selector = (state2) => state2, equalityFn) {
-  return useStore$1()(selector, equalityFn);
+  return useStore()(selector, equalityFn);
 }
 function useFrame(callback, renderPriority = 0) {
-  const store = useStore$1();
+  const store = useStore();
   const subscribe = store.getState().internal.subscribe;
   const ref = useMutableCallback(callback);
   useIsomorphicLayoutEffect(() => subscribe(ref, renderPriority, store), [renderPriority, subscribe, store]);
@@ -65377,61 +65870,6 @@ function Canvas(props) {
     })
   });
 }
-const identity = (arg) => arg;
-function useStore(api, selector = identity) {
-  const slice = React$4.useSyncExternalStore(
-    api.subscribe,
-    React$4.useCallback(() => selector(api.getState()), [api, selector]),
-    React$4.useCallback(() => selector(api.getInitialState()), [api, selector])
-  );
-  React$4.useDebugValue(slice);
-  return slice;
-}
-const createImpl = (createState) => {
-  const api = createStore$1(createState);
-  const useBoundStore = (selector) => useStore(api, selector);
-  Object.assign(useBoundStore, api);
-  return useBoundStore;
-};
-const create = (createState) => createState ? createImpl(createState) : createImpl;
-const useGameStore = create((set) => ({
-  isPaused: false,
-  showHUD: true,
-  gameMode: "exploration",
-  credits: 0,
-  discoveredLocations: [],
-  notifications: [],
-  gameStarted: false,
-  showInventory: false,
-  showCrafting: false,
-  showPauseMenu: false,
-  setPaused: (paused) => set({ isPaused: paused }),
-  toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
-  setGameMode: (mode) => set({ gameMode: mode }),
-  addCredits: (amount) => set((s) => ({ credits: s.credits + amount })),
-  discoverLocation: (location2) => set((s) => ({
-    discoveredLocations: s.discoveredLocations.some(
-      (l2) => l2.id === location2.id
-    ) ? s.discoveredLocations : [...s.discoveredLocations, location2]
-  })),
-  addNotification: (message, type) => {
-    const id = `notif-${Date.now()}-${Math.random()}`;
-    set((s) => ({
-      notifications: [
-        ...s.notifications,
-        { id, message, type, timestamp: Date.now() }
-      ]
-    }));
-    setTimeout(() => {
-      useGameStore.getState().removeNotification(id);
-    }, 4e3);
-  },
-  removeNotification: (id) => set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) })),
-  setGameStarted: (started) => set({ gameStarted: started }),
-  toggleInventory: () => set((s) => ({ showInventory: !s.showInventory, showCrafting: false })),
-  toggleCrafting: () => set((s) => ({ showCrafting: !s.showCrafting, showInventory: false })),
-  togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu }))
-}));
 const RESOURCES = {
   iron: {
     type: "iron",
@@ -65924,6 +66362,10 @@ const useShipStore = create((set) => ({
   consumeFuel: (amount) => set((s) => ({ fuel: Math.max(0, s.fuel - amount) })),
   refuel: (amount) => set((s) => ({ fuel: Math.min(s.maxFuel, s.fuel + amount) })),
   repairHull: (amount) => set((s) => ({ hull: Math.min(s.maxHull, s.hull + amount) })),
+  updateOxygen: (delta) => set((s) => ({ oxygen: Math.max(0, Math.min(100, s.oxygen + delta)) })),
+  updateHull: (delta) => set((s) => ({ hull: Math.max(0, Math.min(s.maxHull, s.hull + delta)) })),
+  updatePower: (delta) => set((s) => ({ power: Math.max(0, Math.min(100, s.power + delta)) })),
+  updateFuel: (delta) => set((s) => ({ fuel: Math.max(0, Math.min(s.maxFuel, s.fuel + delta)) })),
   addCargo: (weight) => set((s) => ({ cargo: s.cargo + weight })),
   removeCargo: (weight) => set((s) => ({ cargo: Math.max(0, s.cargo - weight) })),
   setMining: (isMining, targetId = null) => set({ isMining, miningTarget: targetId, miningProgress: 0 }),
@@ -66727,9 +67169,15 @@ function ShipController() {
       return;
     const dt = Math.min(delta, 0.05);
     const shipState = useShipStore.getState();
-    const sensitivity = 2e-3;
-    yaw.current -= mouseMovement.current.x * sensitivity;
-    pitch.current -= mouseMovement.current.y * sensitivity;
+    const settings = useSettingsStore.getState();
+    const mouseSensitivity = 2e-3;
+    const touchSensitivity = 15e-4 * settings.cameraSensitivity;
+    yaw.current -= mouseMovement.current.x * mouseSensitivity;
+    pitch.current -= mouseMovement.current.y * mouseSensitivity;
+    yaw.current -= touchCameraMovement.x * touchSensitivity;
+    pitch.current -= touchCameraMovement.y * touchSensitivity;
+    touchCameraMovement.x = 0;
+    touchCameraMovement.y = 0;
     pitch.current = Math.max(
       -Math.PI / 2.5,
       Math.min(Math.PI / 2.5, pitch.current)
@@ -66812,65 +67260,105 @@ function ShipController() {
 function CargoPanel() {
   const { maxCargo } = useShipStore();
   const { resources, totalWeight } = useInventoryStore();
+  const [collapsed, setCollapsed] = reactExports.useState(false);
   const topResources = Object.keys(resources).filter((k2) => resources[k2] > 0).sort((a2, b2) => resources[b2] - resources[a2]).slice(0, 5);
   const weight = Math.round(totalWeight());
   const pct = weight / maxCargo * 100;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-4 left-4 hud-panel p-3 w-52 text-xs font-mono", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan", children: "CARGO" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "CAPACITY" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "span",
-        {
-          className: pct > 90 ? "text-red-400" : pct > 70 ? "text-amber-400" : "text-cyan-300",
-          children: [
-            weight,
-            "/",
-            maxCargo,
-            " KG"
-          ]
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "h-full rounded-full transition-all",
-        style: {
-          width: `${Math.min(100, pct)}%`,
-          backgroundColor: pct > 90 ? "#FF3333" : "#00E6FF"
-        }
-      }
-    ) }),
-    topResources.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-gray-500 text-[10px]", children: "Empty" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: topResources.map((type) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: RESOURCES[type].color }, children: [
-        RESOURCES[type].icon,
-        " ",
-        RESOURCES[type].name
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: resources[type] })
-    ] }, type)) })
-  ] });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-lg shadow-cyan-500/20 p-3 w-52 text-xs font-mono animate-slide-in-left",
+      style: { animationDelay: "0.2s", animationFillMode: "both" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            className: "w-full text-left text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan cursor-pointer select-none hover:text-cyan-300 transition-colors flex items-center bg-transparent border-0 p-0",
+            onClick: () => setCollapsed((c2) => !c2),
+            children: [
+              "CARGO",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-1 text-[8px]", children: collapsed ? "▶" : "▼" })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: collapsed ? "hidden" : "", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "CAPACITY" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "span",
+              {
+                className: pct > 90 ? "text-red-400" : pct > 70 ? "text-amber-400" : "text-cyan-300",
+                children: [
+                  weight,
+                  "/",
+                  maxCargo,
+                  " KG"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "h-full rounded-full transition-all",
+              style: {
+                width: `${Math.min(100, pct)}%`,
+                backgroundColor: pct > 90 ? "#FF3333" : "#00E6FF"
+              }
+            }
+          ) }),
+          topResources.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-gray-500 text-[10px]", children: "Empty" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: topResources.map((type) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: RESOURCES[type].color }, children: [
+              RESOURCES[type].icon,
+              " ",
+              RESOURCES[type].name
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: resources[type] })
+          ] }, type)) })
+        ] })
+      ]
+    }
+  );
 }
 function ControlsGuide() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-4 right-4 hud-panel p-3 text-[10px] font-mono text-gray-400 w-36", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 tracking-widest font-bold mb-2", children: "CONTROLS" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-0.5", children: [
-      ["WASD", "Move"],
-      ["MOUSE", "Aim"],
-      ["SPACE", "Boost"],
-      ["SHIFT", "Brake"],
-      ["Q/E", "Roll"],
-      ["CLICK", "Mine"],
-      ["I", "Inventory"],
-      ["C", "Crafting"],
-      ["TAB", "HUD"],
-      ["ESC", "Pause"]
-    ].map(([key, action]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-500", children: key }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: action })
-    ] }, key)) })
-  ] });
+  const [collapsed, setCollapsed] = reactExports.useState(false);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-lg shadow-cyan-500/20 p-3 text-[10px] font-mono text-gray-400 w-36 animate-slide-in-right",
+      style: { animationDelay: "0.2s", animationFillMode: "both" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            className: "w-full text-left text-cyan-400 tracking-widest font-bold mb-2 cursor-pointer select-none hover:text-cyan-300 transition-colors flex items-center bg-transparent border-0 p-0",
+            onClick: () => setCollapsed((c2) => !c2),
+            children: [
+              "CONTROLS",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-1 text-[8px]", children: collapsed ? "▶" : "▼" })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: collapsed ? "hidden" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-0.5", children: [
+          ["WASD", "Move"],
+          ["MOUSE", "Aim"],
+          ["SPACE", "Boost"],
+          ["SHIFT", "Brake"],
+          ["Q/E", "Roll"],
+          ["CLICK", "Mine"],
+          ["I", "Inventory"],
+          ["C", "Crafting"],
+          ["TAB", "HUD"],
+          ["ESC", "Pause"]
+        ].map(([key, action]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-500", children: key }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: action })
+        ] }, key)) }) })
+      ]
+    }
+  );
 }
 function Crosshair({
   targetId,
@@ -66992,14 +67480,26 @@ function RadarMinimap() {
   const position = useShipStore((s) => s.position);
   const radarRadius = 200;
   const svgRadius = 55;
+  const [collapsed, setCollapsed] = reactExports.useState(false);
   const toRadarCoord = (wx, wz) => {
     const dx = (wx - position[0]) / radarRadius;
     const dz = (wz - position[2]) / radarRadius;
     return { x: dx * svgRadius, y: dz * svgRadius };
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 right-4 hud-panel p-3", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 font-mono text-glow-cyan", children: "RADAR" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", style: { width: 120, height: 120 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: 120, height: 120, "aria-hidden": "true", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-lg shadow-cyan-500/20 p-3 animate-slide-in-right", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        className: "w-full text-left text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 font-mono text-glow-cyan cursor-pointer select-none hover:text-cyan-300 transition-colors flex items-center bg-transparent border-0 p-0",
+        onClick: () => setCollapsed((c2) => !c2),
+        children: [
+          "RADAR",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-1 text-[8px]", children: collapsed ? "▶" : "▼" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: collapsed ? "hidden" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", style: { width: 120, height: 120 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: 120, height: 120, "aria-hidden": "true", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "circle",
         {
@@ -67065,7 +67565,7 @@ function RadarMinimap() {
       }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: 60, cy: 60, r: 4, fill: "#00FF88" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "60,52 57,60 63,60", fill: "#00FF88" })
-    ] }) })
+    ] }) }) })
   ] });
 }
 function Bar({
@@ -67086,9 +67586,21 @@ function Bar({
 function StatusPanel() {
   const { hull, maxHull, fuel, maxFuel, oxygen, power, velocity } = useShipStore();
   const speed = Math.round(getSpeed(velocity) * 20);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 left-4 hud-panel p-3 w-52 text-xs font-mono", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan", children: "STATUS" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+  const [collapsed, setCollapsed] = reactExports.useState(false);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-lg shadow-cyan-500/20 p-3 w-52 text-xs font-mono animate-slide-in-left", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        className: "w-full text-left text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan cursor-pointer select-none hover:text-cyan-300 transition-colors flex items-center bg-transparent border-0 p-0",
+        onClick: () => setCollapsed((c2) => !c2),
+        children: [
+          "STATUS",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-1 text-[8px]", children: collapsed ? "▶" : "▼" })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: collapsed ? "hidden" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "HULL" }),
@@ -67143,7 +67655,7 @@ function StatusPanel() {
           " m/s"
         ] })
       ] })
-    ] })
+    ] }) })
   ] });
 }
 function HUD({ targetId, targetDistance }) {
@@ -67166,11 +67678,15 @@ function GameCanvas() {
   const [targetDistance, setTargetDistance] = reactExports.useState(
     Number.POSITIVE_INFINITY
   );
-  const { showInventory, showCrafting } = useGameStore();
-  const handleTargetChange = reactExports.useCallback((id, dist) => {
-    setTargetId(id);
-    setTargetDistance(dist);
-  }, []);
+  const { showInventory, showCrafting, setNearestTargetDistance } = useGameStore();
+  const handleTargetChange = reactExports.useCallback(
+    (id, dist) => {
+      setTargetId(id);
+      setTargetDistance(dist);
+      setNearestTargetDistance(dist);
+    },
+    [setNearestTargetDistance]
+  );
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full h-full relative", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       Canvas,
@@ -67225,7 +67741,8 @@ const STORY_EVENTS = {
       {
         id: "repair",
         text: "Begin emergency repairs",
-        nextEvent: "p1_repair_start"
+        nextEvent: "p1_repair_start",
+        effects: { hull: 15, power: -10 }
       },
       {
         id: "ignore",
@@ -67242,12 +67759,14 @@ const STORY_EVENTS = {
       {
         id: "recycler",
         text: "Fix the oxygen recycler first",
-        nextEvent: void 0
+        nextEvent: void 0,
+        effects: { oxygen: 20, power: -15 }
       },
       {
         id: "propulsion",
         text: "Propulsion comes first",
-        nextEvent: void 0
+        nextEvent: void 0,
+        effects: { fuel: 20, power: -10 }
       },
       {
         id: "comms",
@@ -67278,6 +67797,12 @@ const useStoryStore = create((set) => ({
     if (event) set({ currentEvent: event, isVisible: true });
   },
   selectChoice: (choice) => {
+    const effects = choice.effects ?? {};
+    const ship = useShipStore.getState();
+    if (effects.oxygen) ship.updateOxygen(effects.oxygen);
+    if (effects.hull) ship.updateHull(effects.hull);
+    if (effects.power) ship.updatePower(effects.power);
+    if (effects.fuel) ship.updateFuel(effects.fuel);
     if (choice.nextEvent) {
       const next = STORY_EVENTS[choice.nextEvent];
       if (next) {
@@ -67289,8 +67814,22 @@ const useStoryStore = create((set) => ({
   },
   dismiss: () => set({ isVisible: false })
 }));
+function speakText(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.pitch = 0.8;
+  utterance.rate = 0.9;
+  utterance.volume = 0.8;
+  window.speechSynthesis.speak(utterance);
+}
 function StoryEventPanel() {
   const { currentEvent, isVisible, selectChoice, dismiss } = useStoryStore();
+  reactExports.useEffect(() => {
+    if (currentEvent && isVisible) {
+      speakText(currentEvent.dialogue);
+    }
+  }, [currentEvent, isVisible]);
   if (!currentEvent) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
@@ -67353,6 +67892,17 @@ function StoryEventPanel() {
 }
 function PauseMenu() {
   const { togglePauseMenu, setGameStarted, addNotification } = useGameStore();
+  const {
+    joystickSensitivity,
+    cameraSensitivity,
+    buttonSize,
+    hapticsEnabled,
+    setJoystickSensitivity,
+    setCameraSensitivity,
+    setButtonSize,
+    setHapticsEnabled
+  } = useSettingsStore();
+  const [tab, setTab] = reactExports.useState("menu");
   const saveGame = () => {
     const ship = useShipStore.getState();
     const inv = useInventoryStore.getState();
@@ -67370,9 +67920,28 @@ function PauseMenu() {
     setGameStarted(false);
     togglePauseMenu();
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "hud-panel p-8 text-center min-w-64", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 tracking-[0.2em] font-bold font-mono text-lg mb-6", children: "PAUSED" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "hud-panel p-6 text-center min-w-72 max-w-sm w-full mx-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex mb-6 border border-cyan-500/30 rounded overflow-hidden", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => setTab("menu"),
+          className: `flex-1 py-2 text-xs font-mono tracking-widest transition-colors ${tab === "menu" ? "bg-cyan-500/20 text-cyan-300" : "text-cyan-500/50 hover:text-cyan-400"}`,
+          children: "PAUSED"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => setTab("settings"),
+          className: `flex-1 py-2 text-xs font-mono tracking-widest transition-colors ${tab === "settings" ? "bg-cyan-500/20 text-cyan-300" : "text-cyan-500/50 hover:text-cyan-400"}`,
+          children: "SETTINGS"
+        }
+      )
+    ] }),
+    tab === "menu" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
@@ -67400,6 +67969,77 @@ function PauseMenu() {
           children: "Quit to Menu"
         }
       )
+    ] }),
+    tab === "settings" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-5 text-left", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { htmlFor: "joystick-sens", className: "block", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between mb-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-400 tracking-widest", children: "JOYSTICK SENSITIVITY" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-300", children: joystickSensitivity.toFixed(1) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            id: "joystick-sens",
+            type: "range",
+            min: 0.3,
+            max: 2,
+            step: 0.1,
+            value: joystickSensitivity,
+            onChange: (e) => setJoystickSensitivity(Number.parseFloat(e.target.value)),
+            className: "w-full accent-cyan-400 cursor-pointer"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { htmlFor: "camera-sens", className: "block", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between mb-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-400 tracking-widest", children: "CAMERA SENSITIVITY" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-300", children: cameraSensitivity.toFixed(1) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            id: "camera-sens",
+            type: "range",
+            min: 0.3,
+            max: 2,
+            step: 0.1,
+            value: cameraSensitivity,
+            onChange: (e) => setCameraSensitivity(Number.parseFloat(e.target.value)),
+            className: "w-full accent-cyan-400 cursor-pointer"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-400 tracking-widest block mb-2", children: "BUTTON SIZE" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-2", children: ["small", "medium", "large"].map((size) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setButtonSize(size),
+            className: `flex-1 py-1.5 text-xs font-mono rounded border transition-colors ${buttonSize === size ? "bg-cyan-500/30 border-cyan-400 text-cyan-300" : "border-cyan-500/30 text-cyan-500/60 hover:text-cyan-400"}`,
+            children: size.toUpperCase()
+          },
+          size
+        )) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-mono text-cyan-400 tracking-widest", children: "HAPTIC FEEDBACK" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            "aria-label": `Haptic feedback ${hapticsEnabled ? "on" : "off"}`,
+            onClick: () => setHapticsEnabled(!hapticsEnabled),
+            className: `relative w-12 h-6 rounded-full border transition-colors ${hapticsEnabled ? "bg-cyan-500/40 border-cyan-400" : "bg-slate-700/40 border-slate-500/40"}`,
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                className: `absolute top-0.5 w-5 h-5 rounded-full transition-all ${hapticsEnabled ? "left-6 bg-cyan-400" : "left-0.5 bg-slate-400"}`
+              }
+            )
+          }
+        )
+      ] })
     ] })
   ] }) });
 }
@@ -67547,14 +68187,6 @@ function StartScreen() {
     }
   );
 }
-const useDeviceStore = create((set) => ({
-  device: "desktop",
-  detectDevice: () => {
-    const w = window.innerWidth;
-    const device = w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
-    set({ device });
-  }
-}));
 function App() {
   const gameStarted = useGameStore((s) => s.gameStarted);
   const showPauseMenu = useGameStore((s) => s.showPauseMenu);
@@ -67567,6 +68199,7 @@ function App() {
   }, [detectDevice]);
   reactExports.useEffect(() => {
     if (!gameStarted) return;
+    speakText("Welcome, Commander. Initializing ship systems.");
     const timer = setTimeout(() => {
       triggerEvent("p1_systems_damaged");
     }, 3e3);
@@ -67593,7 +68226,8 @@ function App() {
       /* @__PURE__ */ jsxRuntimeExports.jsx(GameCanvas, {}),
       showPauseMenu && /* @__PURE__ */ jsxRuntimeExports.jsx(PauseMenu, {})
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(StoryEventPanel, {})
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StoryEventPanel, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(MobileControls, {})
   ] });
 }
 const alphabet = "abcdefghijklmnopqrstuvwxyz234567";
@@ -73388,7 +74022,7 @@ async function loadConfig() {
   }
 }
 const ONE_HOUR_IN_NANOSECONDS = BigInt(36e11);
-const DEFAULT_IDENTITY_PROVIDER = "https://id.ai";
+const DEFAULT_IDENTITY_PROVIDER = "https://identity.internetcomputer.org/";
 const InternetIdentityReactContext = reactExports.createContext(
   void 0
 );
