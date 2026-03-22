@@ -10,6 +10,7 @@ import InventoryPanel from "../Inventory/InventoryPanel";
 import MiningLaser from "../Ship/MiningLaser";
 import ShipController from "../Ship/ShipController";
 import HUD from "../UI/HUD";
+import { EarthGlobe } from "../game/EarthGlobe";
 
 export default function GameCanvas() {
   const [targetId, setTargetId] = useState<string | null>(null);
@@ -55,6 +56,11 @@ export default function GameCanvas() {
         <SpaceStation />
         <DerelictShips />
         <MiningLaser targetId={targetId} targetDistance={targetDistance} />
+
+        {/* Earth Globe - positioned ahead of player start */}
+        <group position={[0, 0, -8]}>
+          <EarthGlobe />
+        </group>
 
         {/* Player controller */}
         <ShipController />

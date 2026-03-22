@@ -31,6 +31,24 @@ body {
   height: 100%;
 }
 
+/* ============================================================
+   LANDSCAPE LOCK
+   On portrait devices rotate the entire page 90deg so the
+   game always renders in landscape.
+   ============================================================ */
+@media screen and (orientation: portrait) {
+  html {
+    transform: rotate(90deg);
+    transform-origin: left top;
+    width: 100vh;
+    height: 100vw;
+    position: fixed;
+    top: 100%;
+    left: 0;
+    overflow: hidden;
+  }
+}
+
 /* Scanlines overlay */
 .scanlines::before {
   content: "";
