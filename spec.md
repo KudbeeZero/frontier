@@ -1,44 +1,38 @@
-# Frontier: Orbital Combat — Story Mode System
+# Frontier: Orbital Combat
 
 ## Current State
-- `storyStore.ts` exists with basic event structure (3 existing events: p1_systems_damaged, p1_scan_results, p1_repair_start), `triggerEvent`, `selectChoice`, `dismiss` actions. No completed events tracking, no stage system, no story mode flag.
-- `StoryPanel.tsx` exists with full UI (choices, effects labels, cyan styling), but no slide animation and not wired to a STORY MODE entry.
-- `StoryEventPanel.tsx` exists as alternate panel variant with slide-up animation.
-- `voiceNarration.ts` exists with browser `speechSynthesis` fallback.
-- No SpaceDepot 3D object.
-- No ElevenLabs service.
-- No STORY MODE entry point in the UI.
-- `GameCanvas.tsx` has no story mode spawning logic.
+Full-stack space combat game with Three.js. Has orbital lanes system (5 lanes at radii 1.6–2.8), combat targeting (enemy ships in space), projectile/explosion systems, enemy store, weapons store. Earth globe radius = 1.4 units. Camera orbits at lane + 0.5 offset. UI: top nav bar, HUD panels, weapon bar, notification system, gameStore with credits.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `src/frontend/src/services/elevenLabsService.ts` — ElevenLabs TTS service with placeholder voice IDs (`narrator_placeholder`, `aegis_placeholder`). Falls back to browser `speechSynthesis` if no API key. Exported `playVoiceLine(text, voiceId)` function.
-- `src/frontend/src/components/Story/VoicePlayer.tsx` — React component that wraps voice playback; auto-plays A.E.G.I.S. dialogue when story event becomes visible.
-- `src/frontend/src/objects/SpaceDepot.tsx` — 3D space station model using cylinders/cubes at world position (500, 0, 500). Includes proximity detection: tracks distance to camera/player; when within 50 units, surfaces `isNearDepot=true` to a store or callback. Emits a "DOCK" button via a portal/HUD hook when near.
-- 3 new story events in `storyStore.ts`: "depot_arrival" (docking trigger), "systems_critical" (auto-trigger at 30s), "strange_signal" (unlocks after events 1 & 2 completed).
-- `completedEvents: string[]`, `currentStage: number`, `isStoryMode: boolean`, `storyStartTime: number | null`, `nearDepot: boolean`, `setNearDepot`, `enterStoryMode`, `markEventComplete` actions added to storyStore.
-- STORY MODE button in the HUD nav bar (next to mode toggles), visible when not in story mode.
-- Story mode spawn logic: sets camera/player position 100 units from depot, shows notification "Fly to the depot and dock to begin".
-- DOCK button overlay (rendered in HUD) when `nearDepot === true` in story mode.
-- Auto-trigger logic for "systems_critical" event (30s after story mode starts) in a useEffect in App or GameCanvas.
-- Strange Signal unlock check after completing events 1 & 2.
+- `groundTargetStore.ts` — Zustand store: 8 targets with lat/lon positions on Earth surface (radius 1.4), hp=100, status (intact/damaged/destroyed), scorchMarks array, credits reward=50 per kill, destroyedCount
+- `GroundTargets.tsx` — 3D scene component: renders each target as a small cone/cylinder on Earth surface + point light glow. Color: green (intact), orange (damaged <50hp), red (critical <25hp). Destroyed targets leave scorch mark mesh. Targets rotate with Earth globe. Smoke particle-like flicker on damaged targets.
+- `GroundTargetReticle.tsx` — lock-on system: raycasts toward Earth center; detects which ground target is near crosshair in combat mode; requires 0.5s dwell time before locking; shows targeting box UI overlay with name, distance, health%.
+- `GroundTargetRadar.tsx` — compact radar overlay showing target positions relative to current orbital angle; placed top-right under combat log.
+- Update `CombatTargetingSystem.tsx` — integrate ground target detection alongside enemy detection.
+- Update `combat.ts` — when locked target is a ground target, fire projectile toward Earth surface point; calculate travel time from distance.
+- Update `Projectile.tsx` — check collision with ground targets; apply damage; trigger explosion at surface point; award credits + notification on kill.
+- Update `HUD.tsx` — add TargetCounter widget to TopStatusBar ("Targets: 5/8"); add ground target locked indicator; render GroundTargetRadar in combat mode.
+- Update `GameCanvas.tsx` — include GroundTargets and GroundTargetReticle in scene.
+- Update `EarthGlobe.tsx` — export EARTH_RADIUS constant (1.4).
 
 ### Modify
-- `storyStore.ts` — add new fields/actions listed above; add 3 new events; keep existing events intact.
-- `StoryPanel.tsx` — ensure slide-up animation (translateY 100% → 0, 0.3s ease-out), covers bottom 50% of screen, dark bg with 60% black overlay on game, cyan top border, mobile-friendly 60px min button height.
-- `GameCanvas.tsx` — add `<SpaceDepot />` to the 3D scene.
-- `App.tsx` — mount `<StoryPanel />` and `<VoicePlayer />` conditionally; add story mode 30s auto-trigger effect.
+- `gameStore.ts` — already has `addCredits`; no changes needed
+- `types/game.ts` — add GroundTarget interface
+- `NotificationSystem.tsx` — already handles success notifications
 
 ### Remove
-- Nothing removed; existing story events and panels preserved.
+- Nothing removed
 
 ## Implementation Plan
-1. Create `elevenLabsService.ts` with `playVoiceLine(text, voiceId)` using ElevenLabs REST API if `VITE_ELEVENLABS_API_KEY` env var exists, otherwise falls back to `speechSynthesis`.
-2. Update `storyStore.ts`: add `completedEvents`, `currentStage`, `isStoryMode`, `storyStartTime`, `nearDepot`, and new actions; add 3 new story events with correct choices and resource effects.
-3. Create `SpaceDepot.tsx` 3D object (cylinders + boxes geometry) positioned at [500,0,500]; use `useFrame` to measure distance from camera; call `useStoryStore.getState().setNearDepot(bool)` when within 50 units.
-4. Update `StoryPanel.tsx` with slide-up CSS animation, 50% bottom coverage, 60% overlay, cyan border, 60px min button height.
-5. Create `VoicePlayer.tsx` that watches `currentEvent`+`isVisible` and calls `playVoiceLine`.
-6. Update `GameCanvas.tsx` to include `<SpaceDepot />`.
-7. Update `App.tsx`: mount `<StoryPanel />`, `<VoicePlayer />`; add 30s timer effect for systems_critical; add DOCK button when `nearDepot && isStoryMode`.
-8. Add STORY MODE button to the HUD navigation bar with `enterStoryMode` action that repositions player near depot and shows notification.
+1. Add `GroundTarget` type to `types/game.ts`
+2. Create `groundTargetStore.ts` with 8 hardcoded targets at real-world continent coordinates converted to sphere lat/lon
+3. Create `GroundTargets.tsx` — 3D mesh group attached to Earth rotation, damage visual states, scorch marks
+4. Create ground target lock-on logic inside `CombatTargetingSystem.tsx` with 0.5s dwell timer
+5. Create `GroundTargetLockHUD.tsx` — targeting box overlay for locked ground target
+6. Update `combat.ts` `handleFireButton` to fire at locked ground targets
+7. Update `Projectile.tsx` to handle `groundTargetId` — arc projectile to surface, apply damage on arrival, trigger explosion, award credits
+8. Create `GroundTargetRadar.tsx` — polar minimap showing 8 target positions
+9. Update `HUD.tsx` — add target counter to status bar, ground target HUD, radar in combat
+10. Update `GameCanvas.tsx` — mount GroundTargets in scene

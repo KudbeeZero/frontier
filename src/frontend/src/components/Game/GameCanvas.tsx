@@ -13,6 +13,7 @@ import { CombatTargetingSystem } from "../Combat/CombatTargetingSystem";
 import { EnemyLabels } from "../Combat/EnemyLabels";
 import { EnemyLayer } from "../Combat/EnemyLayer";
 import { Explosion } from "../Combat/Explosion";
+import { GroundTargets } from "../Combat/GroundTargets";
 import { Projectile } from "../Combat/Projectile";
 import CraftingPanel from "../Crafting/CraftingPanel";
 import { AmbientUniverse } from "../Environment/AmbientUniverse";
@@ -40,6 +41,7 @@ function ProjectileLayer() {
           key={proj.id}
           {...proj}
           targetId={proj.targetId}
+          groundTargetId={proj.groundTargetId}
           onExpire={removeProjectile}
           onHit={removeProjectile}
         />
@@ -96,7 +98,7 @@ function CameraOrbitController({
     const state = useCameraStore.getState();
     const cameraMode = state.mode;
 
-    // ── COMBAT: rail-shooter ───────────────────────────────────────────────
+    // ── COMBAT: rail-shooter ─────────────────────────────────────────────────────
     if (cameraMode === "combat") {
       const laneRadius = useLaneStore.getState().getCurrentRadius();
 
@@ -145,7 +147,7 @@ function CameraOrbitController({
       return;
     }
 
-    // ── FREE ROAM ─────────────────────────────────────────────────────────
+    // ── FREE ROAM ───────────────────────────────────────────────────────────
     if (cameraMode === "freeRoam") {
       const yaw = state.freeRoamYaw;
       const pitch = state.freeRoamPitch;
@@ -180,7 +182,7 @@ function CameraOrbitController({
       return;
     }
 
-    // ── ORBITAL: lane-locked ring ──────────────────────────────────────────
+    // ── ORBITAL: lane-locked ring ───────────────────────────────────────────────
     const laneRadius = useLaneStore.getState().getCurrentRadius();
     const RADIUS = laneRadius + ORBITAL_PULL_BACK;
 
@@ -361,6 +363,8 @@ export default function GameCanvas() {
 
         <group position={[0, 0, 0]}>
           <EarthGlobe />
+          {/* Ground targets rotate with Earth (same parent group) */}
+          <GroundTargets />
         </group>
 
         <AsteroidField onTargetChange={handleTargetChange} />

@@ -12,6 +12,8 @@ export interface ProjectileData {
   maxLifetime: number;
   createdAt: number;
   targetId?: string;
+  /** If set, this projectile is homing toward a ground target on Earth's surface */
+  groundTargetId?: string;
 }
 
 interface ProjectileState {

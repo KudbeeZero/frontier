@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { AEGIS_VOICE_ID, playVoiceLine } from "../services/elevenLabsService";
 import { useShipStore } from "./shipStore";
 
 export interface StoryChoice {
@@ -66,7 +67,7 @@ const STORY_EVENTS: Record<string, StoryEvent> = {
       },
       {
         id: "comms",
-        text: "Restore comms -- we need backup",
+        text: "Restore comms — we need backup",
         nextEvent: undefined,
       },
     ],
@@ -135,21 +136,32 @@ const STORY_EVENTS: Record<string, StoryEvent> = {
     id: "strange_signal",
     speaker: "A.E.G.I.S.",
     dialogue:
-      "I'm detecting an unusual transmission... Commander, this could be important.",
+      "I'm detecting an unusual transmission on a non-standard frequency. Commander, this could be important. The signal appears to originate from deep space — outside our current sector.",
     choices: [
       {
         id: "investigate",
-        text: "Investigate",
+        text: "Investigate the anomaly",
+        effects: {},
+      },
+      {
+        id: "report",
+        text: "Report to command station",
         effects: {},
       },
       {
         id: "ignore",
-        text: "Ignore",
+        text: "Ignore it — stay on mission",
         effects: {},
       },
     ],
   },
 };
+
+export interface ObjectivePosition {
+  x: number;
+  y: number;
+  z: number;
+}
 
 interface StoryState {
   currentEvent: StoryEvent | null;
@@ -159,6 +171,10 @@ interface StoryState {
   isStoryMode: boolean;
   storyStartTime: number | null;
   nearDepot: boolean;
+  /** Current navigation objective in world space (null = no target) */
+  objectivePosition: ObjectivePosition | null;
+  /** Short human-readable label shown next to the arrow */
+  objectiveLabel: string;
 
   triggerEvent: (eventId: string) => void;
   selectChoice: (choice: StoryChoice) => void;
@@ -168,6 +184,7 @@ interface StoryState {
   setNearDepot: (near: boolean) => void;
   markEventComplete: (eventId: string) => void;
   checkUnlocks: () => void;
+  setObjective: (pos: ObjectivePosition | null, label?: string) => void;
 }
 
 export const useStoryStore = create<StoryState>((set, get) => ({
@@ -178,11 +195,16 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   isStoryMode: false,
   storyStartTime: null,
   nearDepot: false,
+  objectivePosition: null,
+  objectiveLabel: "",
 
   triggerEvent: (eventId: string) => {
     const event = STORY_EVENTS[eventId];
     if (event) set({ currentEvent: event, isVisible: true });
   },
+
+  setObjective: (pos, label = "") =>
+    set({ objectivePosition: pos, objectiveLabel: label }),
 
   selectChoice: (choice: StoryChoice) => {
     // Apply resource effects to ship
@@ -197,6 +219,32 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const currentId = get().currentEvent?.id;
     if (currentId) {
       get().markEventComplete(currentId);
+    }
+
+    // Handle strange_signal branch — update navigation objective
+    if (currentId === "strange_signal") {
+      if (choice.id === "investigate") {
+        get().setObjective({ x: 1200, y: 200, z: -800 }, "ANOMALY");
+        playVoiceLine(
+          "Anomaly coordinates locked. Proceeding to investigate the signal source. Stay alert, Commander.",
+          AEGIS_VOICE_ID,
+        ).catch(() => {});
+      } else if (choice.id === "report") {
+        get().setObjective({ x: 0, y: 0, z: 0 }, "CMD STATION");
+        playVoiceLine(
+          "Plotting course to command station. Transmitting full signal analysis on arrival.",
+          AEGIS_VOICE_ID,
+        ).catch(() => {});
+      } else if (choice.id === "ignore") {
+        get().setObjective(null, "");
+        playVoiceLine(
+          "Understood. Signal logged for later review. Continuing current mission profile.",
+          AEGIS_VOICE_ID,
+        ).catch(() => {});
+      }
+      set({ isVisible: false });
+      get().checkUnlocks();
+      return;
     }
 
     // Navigate to next event or dismiss
@@ -215,6 +263,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   dismiss: () => set({ isVisible: false }),
 
   enterStoryMode: () => {
+    // Set initial objective to the Space Depot
+    get().setObjective({ x: 500, y: 0, z: 500 }, "DEPOT");
     // Lazy import to avoid circular deps
     import("./cameraStore").then(({ useCameraStore }) => {
       useCameraStore.getState().setMode("freeRoam");
@@ -224,7 +274,13 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   },
 
   exitStoryMode: () =>
-    set({ isStoryMode: false, storyStartTime: null, nearDepot: false }),
+    set({
+      isStoryMode: false,
+      storyStartTime: null,
+      nearDepot: false,
+      objectivePosition: null,
+      objectiveLabel: "",
+    }),
 
   setNearDepot: (near: boolean) => set({ nearDepot: near }),
 

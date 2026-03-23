@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useState } from "react";
 import { useSwipeControls } from "../../hooks/useSwipeControls";
 import { useCameraStore } from "../../stores/cameraStore";
-import { useInventoryStore } from "../../stores/inventoryStore";
+import { useGroundTargetStore } from "../../stores/groundTargetStore";
 import { useLaneStore } from "../../stores/laneStore";
 import { useMenuStore } from "../../stores/menuStore";
 import { useShipStore } from "../../stores/shipStore";
@@ -9,18 +10,21 @@ import { useStoryStore } from "../../stores/storyStore";
 import { useEnemyStore } from "../../stores/useEnemyStore";
 import { useWeaponsStore } from "../../stores/useWeaponsStore";
 import { handleFireButton } from "../../systems/combat";
-import type { ResourceType } from "../../types/game";
-import { RESOURCES } from "../../utils/constants";
-import { CockpitView } from "../game/CockpitView";
+import { GroundTargetLockHUD } from "../Combat/GroundTargetLockHUD";
+import { GroundTargetRadar } from "../Combat/GroundTargetRadar";
 import { FPSCounter } from "../ui/FPSCounter";
 import { AimCone } from "./AimCone";
+import { BottomNavStrip } from "./BottomNavStrip";
+import { BottomWeaponBar } from "./BottomWeaponBar";
 import { CombatLogWatcher } from "./CombatLog";
 import { MechLogPanel } from "./MechLogPanel";
 import MiningAlert from "./MiningAlert";
 import NotificationSystem from "./NotificationSystem";
-import WeaponPanel from "./WeaponPanel";
+import { QuickInventoryGrid } from "./QuickInventoryGrid";
+import { SettingsPanel } from "./SettingsPanel";
+import { WeaponStashCards } from "./WeaponStashCards";
 
-// ─── TOP NAVIGATION BAR ─────────────────────────────────────────────────────────
+// ─── TOP NAVIGATION BAR ──────────────────────────────────────────────────────────────────────────
 const CAMERA_MODES = [
   { id: "freeRoam" as const, label: "FREE ROAM" },
   { id: "orbital" as const, label: "ORBITAL" },
@@ -161,194 +165,227 @@ function TopNavBar() {
   );
 }
 
-// ─── UNIFIED TOP-LEFT PANEL ───────────────────────────────────────────────────
-function StatBar({
-  label,
-  value,
-  max = 100,
-}: { label: string; value: number; max?: number }) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  let barColor = "#00ccff";
-  if (label === "HULL")
-    barColor = pct > 60 ? "#00ff88" : pct > 30 ? "#ffaa00" : "#ff4444";
-  else if (label === "O2")
-    barColor = pct > 60 ? "#00e5ff" : pct > 30 ? "#ffaa00" : "#ff4444";
-  else if (label === "PWR")
-    barColor = pct > 60 ? "#ffe066" : pct > 30 ? "#ffaa00" : "#ff4444";
-  else if (label === "FUEL")
-    barColor = pct > 50 ? "#00ccff" : pct > 25 ? "#ffaa00" : "#ff4444";
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <span
-        style={{
-          fontFamily: "monospace",
-          fontSize: "8px",
-          color: "rgba(255,255,255,0.7)",
-          letterSpacing: "0.12em",
-          width: "30px",
-          textAlign: "right",
-          flexShrink: 0,
-        }}
-      >
-        {label}
-      </span>
-      <div
-        style={{
-          flex: 1,
-          height: "3px",
-          background: "rgba(255,255,255,0.08)",
-          borderRadius: "2px",
-          overflow: "hidden",
-          border: "1px solid rgba(0,200,255,0.5)",
-          minWidth: "52px",
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${pct}%`,
-            background: barColor,
-            borderRadius: "2px",
-            transition: "width 500ms ease, background 500ms ease",
-            boxShadow: `0 0 6px ${barColor}80`,
-          }}
-        />
-      </div>
-      <span
-        style={{
-          fontFamily: "monospace",
-          fontSize: "8px",
-          color: barColor,
-          textShadow: `0 0 5px ${barColor}60`,
-          width: "26px",
-          flexShrink: 0,
-          transition: "color 500ms ease",
-        }}
-      >
-        {Math.round(pct)}%
-      </span>
-    </div>
-  );
-}
-
-function UnifiedTopLeftPanel() {
-  const { hull, maxHull, oxygen, power, fuel, maxFuel } = useShipStore();
+// ─── TOP STATUS BAR ───────────────────────────────────────────────────────────
+function TopStatusBar() {
+  const { hull, maxHull, oxygen } = useShipStore();
   const { currentLane, changeLane } = useLaneStore();
+  const mode = useCameraStore((s) => s.mode);
+  const aliveTargets = useGroundTargetStore(
+    (s) => s.targets.filter((t) => t.status !== "destroyed").length,
+  );
+  const totalTargets = useGroundTargetStore((s) => s.targets.length);
+
+  const hullPct = Math.max(0, Math.min(100, (hull / maxHull) * 100));
+  const o2Pct = Math.max(0, Math.min(100, oxygen));
+
+  const hullColor =
+    hullPct > 60 ? "#00ff88" : hullPct > 30 ? "#ffaa00" : "#ff4444";
+  const o2Color = o2Pct > 60 ? "#00e5ff" : o2Pct > 30 ? "#ffaa00" : "#ff4444";
 
   return (
     <div
-      className="absolute pointer-events-auto"
-      style={{ top: "60px", left: "12px", zIndex: 20 }}
+      style={{
+        position: "fixed",
+        top: 48,
+        left: 0,
+        right: 0,
+        height: 36,
+        zIndex: 21,
+        background: "rgba(0,0,0,0.5)",
+        borderBottom: "1px solid rgba(0,200,255,0.2)",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 12px",
+        pointerEvents: "auto",
+      }}
     >
-      <div
-        style={{
-          background: "rgba(0,0,0,0.3)",
-          border: "1px solid rgba(0,200,255,0.5)",
-          boxShadow:
-            "0 0 14px rgba(0,200,255,0.15), inset 0 0 6px rgba(0,200,255,0.04)",
-          backdropFilter: "blur(8px)",
-          borderRadius: "6px",
-          padding: "8px 12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-          minWidth: "130px",
-        }}
-      >
-        <div
+      {/* Left: OXYGEN */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+        <span
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingBottom: "6px",
-            borderBottom: "1px solid rgba(0,200,255,0.2)",
-            gap: "6px",
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: "rgba(255,255,255,0.6)",
+            letterSpacing: "0.15em",
+            flexShrink: 0,
           }}
         >
+          OXYGEN
+        </span>
+        <div
+          style={{
+            width: 80,
+            height: 8,
+            background: "rgba(255,255,255,0.08)",
+            borderRadius: 4,
+            overflow: "hidden",
+            border: `1px solid ${o2Color}40`,
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${o2Pct}%`,
+              background: o2Color,
+              transition: "width 500ms ease",
+              boxShadow: `0 0 6px ${o2Color}80`,
+            }}
+          />
+        </div>
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: o2Color,
+            fontWeight: "bold",
+            minWidth: 28,
+          }}
+        >
+          {Math.round(o2Pct)}%
+        </span>
+      </div>
+
+      {/* Center: HULL */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          flex: 1,
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: "rgba(255,255,255,0.6)",
+            letterSpacing: "0.15em",
+            flexShrink: 0,
+          }}
+        >
+          HULL
+        </span>
+        <div
+          style={{
+            width: 80,
+            height: 8,
+            background: "rgba(255,255,255,0.08)",
+            borderRadius: 4,
+            overflow: "hidden",
+            border: `1px solid ${hullColor}40`,
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${hullPct}%`,
+              background: hullColor,
+              transition: "width 500ms ease",
+              boxShadow: `0 0 6px ${hullColor}80`,
+            }}
+          />
+        </div>
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: hullColor,
+            fontWeight: "bold",
+            minWidth: 28,
+          }}
+        >
+          {Math.round(hullPct)}%
+        </span>
+      </div>
+
+      {/* Right: Target counter (combat) or SECTOR label + lane controls */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flex: 1,
+          justifyContent: "flex-end",
+        }}
+      >
+        {mode === "combat" && (
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 9,
+              color: aliveTargets === 0 ? "#00ff88" : "#ffaa00",
+              fontWeight: "bold",
+              letterSpacing: "0.1em",
+              textShadow:
+                aliveTargets === 0 ? "0 0 8px rgba(0,255,136,0.7)" : "none",
+            }}
+          >
+            TARGETS: {aliveTargets}/{totalTargets}
+          </span>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <button
             type="button"
             onClick={() => changeLane("down")}
+            data-ocid="lane.down"
             style={{
-              fontFamily: "monospace",
-              fontSize: "11px",
-              color: "rgba(0,200,255,0.7)",
-              background: "transparent",
+              background: "none",
               border: "none",
               cursor: "pointer",
+              color: "rgba(0,200,255,0.7)",
+              fontFamily: "monospace",
+              fontSize: 10,
               padding: "0 2px",
-              lineHeight: 1,
-              transition: "color 150ms ease",
             }}
-            data-ocid="lane.down"
           >
             ▼
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <span
-              style={{
-                fontFamily: "monospace",
-                fontSize: "8px",
-                color: "rgba(255,255,255,0.7)",
-                letterSpacing: "0.15em",
-              }}
-            >
-              LANE
-            </span>
-            <span
-              style={{
-                fontFamily: "monospace",
-                fontSize: "16px",
-                fontWeight: "bold",
-                color: "#00e5ff",
-                textShadow:
-                  "0 0 10px rgba(0,229,255,0.9), 0 0 20px rgba(0,229,255,0.4)",
-                minWidth: "18px",
-                textAlign: "center",
-              }}
-            >
-              {currentLane}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => changeLane("up")}
-            style={{
-              fontFamily: "monospace",
-              fontSize: "11px",
-              color: "rgba(0,200,255,0.7)",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "0 2px",
-              lineHeight: 1,
-              transition: "color 150ms ease",
-            }}
-            data-ocid="lane.up"
-          >
-            ▲
           </button>
           <span
             style={{
               fontFamily: "monospace",
-              fontSize: "8px",
-              color: "rgba(0,200,255,0.35)",
-              letterSpacing: "0.08em",
+              fontSize: 8,
+              color: "rgba(255,255,255,0.5)",
+              letterSpacing: "0.1em",
             }}
           >
-            Q/E
+            LN{currentLane}
           </span>
+          <button
+            type="button"
+            onClick={() => changeLane("up")}
+            data-ocid="lane.up"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "rgba(0,200,255,0.7)",
+              fontFamily: "monospace",
+              fontSize: 10,
+              padding: "0 2px",
+            }}
+          >
+            ▲
+          </button>
         </div>
-        <StatBar label="HULL" value={hull} max={maxHull} />
-        <StatBar label="O2" value={oxygen} max={100} />
-        <StatBar label="PWR" value={power} max={100} />
-        <StatBar label="FUEL" value={fuel} max={maxFuel} />
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 13,
+            fontWeight: "bold",
+            color: "#00e5ff",
+            letterSpacing: "0.2em",
+            textShadow: "0 0 10px rgba(0,229,255,0.7)",
+          }}
+        >
+          SECTOR 7
+        </span>
       </div>
     </div>
   );
 }
 
-// ─── LOCKED INDICATOR ─────────────────────────────────────────────────────────
+// ─── LOCKED INDICATOR (space enemies) ─────────────────────────────────────────
 function LockedIndicator() {
   const lockedTarget = useEnemyStore((s) => s.lockedTarget);
   const enemies = useEnemyStore((s) => s.enemies);
@@ -388,10 +425,11 @@ function LockedIndicator() {
   );
 }
 
-// ─── COMBAT RETICLE ───────────────────────────────────────────────────────────
+// ─── COMBAT RETICLE ─────────────────────────────────────────────────────────────────────────
 function CombatReticle() {
   const mode = useCameraStore((s) => s.mode);
   const lockedTarget = useEnemyStore((s) => s.lockedTarget);
+  const lockedGround = useGroundTargetStore((s) => s.lockedGroundTarget);
   const enemies = useEnemyStore((s) => s.enemies);
   const activeWeapon = useWeaponsStore((s) => s.activeWeapon);
 
@@ -399,7 +437,9 @@ function CombatReticle() {
 
   const RANGES: Record<string, number> = { pulse: 60, rail: 200, missile: 120 };
   let color = "rgba(255,255,255,0.5)";
-  if (lockedTarget) {
+  if (lockedGround) {
+    color = "#00ffff";
+  } else if (lockedTarget) {
     const enemy = enemies.find((e) => e.id === lockedTarget);
     if (enemy) {
       const dist = (enemy as { distance?: number }).distance ?? 80;
@@ -465,7 +505,7 @@ function CombatReticle() {
   );
 }
 
-// ─── LEAD INDICATOR ───────────────────────────────────────────────────────────
+// ─── LEAD INDICATOR ───────────────────────────────────────────────────────────────────────
 function LeadIndicator() {
   const mode = useCameraStore((s) => s.mode);
   const lockedTarget = useEnemyStore((s) => s.lockedTarget);
@@ -490,7 +530,7 @@ function LeadIndicator() {
   );
 }
 
-// ─── MISSILE LOCK BAR ─────────────────────────────────────────────────────────
+// ─── MISSILE LOCK BAR ────────────────────────────────────────────────────────────────────
 function MissileLockBar() {
   const mode = useCameraStore((s) => s.mode);
   const activeWeapon = useWeaponsStore((s) => s.activeWeapon);
@@ -544,265 +584,7 @@ function MissileLockBar() {
   );
 }
 
-// ─── FREE ROAM HUD ────────────────────────────────────────────────────────────
-function FreeRoamHUD() {
-  const mode = useCameraStore((s) => s.mode);
-  const fuel = useShipStore((s) => s.fuel);
-  const maxFuel = useShipStore((s) => s.maxFuel);
-  const maxCargo = useShipStore((s) => s.maxCargo);
-  const resources = useInventoryStore((s) => s.resources);
-  const totalWeight = useInventoryStore((s) => s.totalWeight);
-  if (mode !== "freeRoam") return null;
-
-  const fuelPct = Math.round((fuel / maxFuel) * 100);
-  const cargoUsed = Math.round(totalWeight());
-
-  let topResource: { label: string; amount: number } | null = null;
-  for (const [key, amt] of Object.entries(resources)) {
-    const rKey = key as ResourceType;
-    const weight = (RESOURCES[rKey]?.weight ?? 1) * amt;
-    if (weight > 0 && (!topResource || weight > topResource.amount)) {
-      topResource = { label: RESOURCES[rKey]?.name ?? key, amount: amt };
-    }
-  }
-
-  const fuelColor =
-    fuelPct > 50 ? "#00ff88" : fuelPct > 25 ? "#ffaa00" : "#ff4444";
-  const cargoColor =
-    cargoUsed / maxCargo < 0.8
-      ? "#00ccff"
-      : cargoUsed / maxCargo < 0.95
-        ? "#ffaa00"
-        : "#ff4444";
-
-  return (
-    <div
-      className="absolute top-16 right-3 pointer-events-none"
-      style={{
-        background: "rgba(0,0,0,0.3)",
-        border: "1px solid rgba(0,255,136,0.5)",
-        borderRadius: "6px",
-        boxShadow: "0 0 12px rgba(0,255,136,0.12)",
-        backdropFilter: "blur(8px)",
-        padding: "10px 14px",
-        fontFamily: "monospace",
-        fontSize: "11px",
-        minWidth: "170px",
-      }}
-    >
-      <div className="mb-2">
-        <div className="flex justify-between mb-1">
-          <span
-            style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em" }}
-          >
-            FUEL
-          </span>
-          <span style={{ color: fuelColor }}>{fuelPct}%</span>
-        </div>
-        <div
-          style={{
-            height: "3px",
-            background: "rgba(255,255,255,0.08)",
-            borderRadius: "2px",
-            overflow: "hidden",
-            border: "1px solid rgba(0,200,255,0.5)",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${fuelPct}%`,
-              background: fuelColor,
-              borderRadius: "2px",
-              transition: "width 500ms ease",
-            }}
-          />
-        </div>
-      </div>
-      <div className="mb-2">
-        <div className="flex justify-between">
-          <span
-            style={{ color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em" }}
-          >
-            CARGO
-          </span>
-          <span style={{ color: cargoColor }}>
-            {cargoUsed}/{maxCargo} KG
-          </span>
-        </div>
-      </div>
-      <div
-        style={{
-          borderTop: "1px solid rgba(0,255,136,0.2)",
-          paddingTop: "8px",
-          marginTop: "4px",
-        }}
-      >
-        <div
-          style={{
-            color: "rgba(255,255,255,0.7)",
-            letterSpacing: "0.15em",
-            marginBottom: "3px",
-          }}
-        >
-          SCANNER
-        </div>
-        <div
-          style={{ color: topResource ? "#00ff88" : "rgba(255,255,255,0.25)" }}
-        >
-          {topResource
-            ? `TOP: ${topResource.label} ${topResource.amount}u`
-            : "CLEAR"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── BOTTOM TAB BAR ─────────────────────────────────────────────────────────────
-const ALL_BOTTOM_TABS = [
-  { id: "ship" as const, label: "SHIP" },
-  { id: "cargo" as const, label: "CARGO" },
-  { id: "nav" as const, label: "NAV" },
-  { id: "scan" as const, label: "SCAN" },
-  { id: "comm" as const, label: "COMM" },
-];
-
-function BottomTabBar() {
-  const { activePanel, togglePanel } = useMenuStore();
-  const isStoryMode = useStoryStore((s) => s.isStoryMode);
-  const enterStoryMode = useStoryStore((s) => s.enterStoryMode);
-
-  return (
-    <div
-      className="fixed left-1/2 -translate-x-1/2 pointer-events-auto"
-      style={{ bottom: "72px", zIndex: 30 }}
-    >
-      <div
-        style={{
-          display: "flex",
-          background: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(0,200,255,0.5)",
-          borderRadius: "8px",
-          overflow: "hidden",
-          boxShadow: "0 0 16px rgba(0,200,255,0.1)",
-        }}
-      >
-        {ALL_BOTTOM_TABS.map(({ id, label }, idx) => {
-          const isActive = activePanel === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => togglePanel(id)}
-              data-ocid={`tab.${id}`}
-              style={{
-                fontFamily: "monospace",
-                fontSize: "10px",
-                fontWeight: "bold",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                padding: "8px 14px",
-                minHeight: "48px",
-                background: isActive ? "rgba(0,200,255,0.12)" : "transparent",
-                color: isActive ? "#00ccff" : "rgba(255,255,255,0.7)",
-                border: "none",
-                borderRight:
-                  idx < ALL_BOTTOM_TABS.length - 1
-                    ? "1px solid rgba(0,200,255,0.2)"
-                    : "none",
-                cursor: "pointer",
-                transition: "color 150ms ease, background 150ms ease",
-                textShadow: isActive ? "0 0 8px rgba(0,200,255,0.7)" : "none",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-
-        {/* Separator */}
-        <div
-          style={{
-            width: "1px",
-            background: "rgba(0,200,255,0.3)",
-            margin: "8px 0",
-            flexShrink: 0,
-          }}
-        />
-
-        {/* STORY MODE button */}
-        {!isStoryMode && (
-          <button
-            type="button"
-            onClick={enterStoryMode}
-            data-ocid="tab.story_mode"
-            style={{
-              fontFamily: "monospace",
-              fontSize: "10px",
-              fontWeight: "bold",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              padding: "8px 14px",
-              minHeight: "48px",
-              background: "rgba(0,255,136,0.08)",
-              color: "#00ff88",
-              border: "none",
-              borderLeft: "1px solid rgba(0,200,255,0.2)",
-              cursor: "pointer",
-              transition: "color 150ms ease, background 150ms ease",
-              textShadow: "0 0 8px rgba(0,255,136,0.5)",
-            }}
-          >
-            STORY
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── BOTTOM DOCK ──────────────────────────────────────────────────────────────
-function BottomDock() {
-  const mode = useCameraStore((s) => s.mode);
-  const isCombat = mode === "combat";
-
-  return (
-    <>
-      <div
-        style={{
-          position: "fixed",
-          bottom: "16px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 30,
-          pointerEvents: isCombat ? "auto" : "none",
-          opacity: isCombat ? 1 : 0,
-          translate: isCombat ? "none" : "0 12px",
-          transition: "opacity 300ms ease-out, translate 300ms ease-out",
-        }}
-      >
-        <WeaponPanel />
-      </div>
-
-      <div
-        style={{
-          position: "fixed",
-          bottom: "72px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 30,
-          pointerEvents: "auto",
-        }}
-      >
-        <MechLogPanel />
-      </div>
-    </>
-  );
-}
-
-// ─── DOCK BUTTON ──────────────────────────────────────────────────────────────
+// ─── DOCK BUTTON ────────────────────────────────────────────────────────────────────────────────────
 function DockButton() {
   const nearDepot = useStoryStore((s) => s.nearDepot);
   const isStoryMode = useStoryStore((s) => s.isStoryMode);
@@ -815,7 +597,7 @@ function DockButton() {
     <div
       style={{
         position: "fixed",
-        bottom: "130px",
+        bottom: "200px",
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 45,
@@ -852,7 +634,7 @@ function DockButton() {
   );
 }
 
-// ─── STORY MODE NOTIFICATION ──────────────────────────────────────────────────
+// ─── STORY MODE NOTIFICATION ────────────────────────────────────────────────────────────────────
 function StoryModeNotification() {
   const isStoryMode = useStoryStore((s) => s.isStoryMode);
   const [show, setShow] = useState(false);
@@ -874,7 +656,7 @@ function StoryModeNotification() {
       data-ocid="story.toast"
       style={{
         position: "fixed",
-        top: "70px",
+        top: "90px",
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 60,
@@ -894,12 +676,12 @@ function StoryModeNotification() {
         pointerEvents: "none",
       }}
     >
-      ✦ Fly to the depot and dock to begin
+      ❖ Fly to the depot and dock to begin
     </div>
   );
 }
 
-// ─── HUD ROOT ─────────────────────────────────────────────────────────────────
+// ─── HUD ROOT ───────────────────────────────────────────────────────────────────────────────────────
 interface HUDProps {
   targetId?: string | null;
   targetDistance?: number;
@@ -930,33 +712,46 @@ export default function HUD(_props: HUDProps) {
   return (
     <>
       <CombatLogWatcher />
+
+      {/* Top mode nav bar */}
       <TopNavBar />
 
-      {/* Layer 1 — cockpit frame */}
-      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 10 }}>
-        <CockpitView />
-        <div className="scanlines absolute inset-0 pointer-events-none" />
-      </div>
+      {/* Settings gear — top right */}
+      <SettingsPanel />
 
-      {/* Layer 2 — HUD panels */}
+      {/* Top status bar: O2 / HULL / SECTOR + target counter */}
+      <TopStatusBar />
+
+      {/* HUD panels layer */}
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 20 }}>
-        <UnifiedTopLeftPanel />
         {isCombat && <AimCone />}
         {isCombat && <CombatReticle />}
         {isCombat && <LeadIndicator />}
         {isCombat && <MissileLockBar />}
-        <FreeRoamHUD />
+        {isCombat && <GroundTargetLockHUD />}
         <LockedIndicator />
         <FPSCounter />
         <MiningAlert />
         <NotificationSystem />
+        <QuickInventoryGrid />
       </div>
 
-      {/* Layer 3 — bottom controls */}
-      <BottomTabBar />
-      <BottomDock />
+      {/* Ground target radar — combat only, top-right */}
+      {isCombat && <GroundTargetRadar />}
 
-      {/* Layer 4 — story overlay controls */}
+      {/* Weapon stash — left panel */}
+      <WeaponStashCards />
+
+      {/* Mech log panel */}
+      <MechLogPanel />
+
+      {/* Bottom weapon bar (PULSE CANNON | FIRE | RAIL GUN) — combat only */}
+      <BottomWeaponBar />
+
+      {/* Bottom nav strip (icon row) */}
+      <BottomNavStrip />
+
+      {/* Story overlays */}
       <DockButton />
       <StoryModeNotification />
     </>

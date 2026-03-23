@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import { MobileControls } from "./components/Controls/MobileControls";
 import GameCanvas from "./components/Game/GameCanvas";
+import { WaypointArrow } from "./components/Navigation/WaypointArrow";
 import { StoryPanel } from "./components/Story/StoryPanel";
 import { VoicePlayer } from "./components/Story/VoicePlayer";
+import MainMenu from "./components/UI/MainMenu";
 import { PanelRouter } from "./components/UI/PanelRouter";
 import { useDeviceStore } from "./stores/deviceStore";
+import { useGameStore } from "./stores/gameStore";
 import { useInventoryStore } from "./stores/inventoryStore";
 import { useShipStore } from "./stores/shipStore";
 import { useStoryStore } from "./stores/storyStore";
@@ -13,6 +16,7 @@ import { SAVE_KEY } from "./utils/constants";
 export default function App() {
   const { detectDevice } = useDeviceStore();
   const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  const gameStarted = useGameStore((s) => s.gameStarted);
 
   useEffect(() => {
     detectDevice();
@@ -55,6 +59,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isStoryMode]);
 
+  if (!gameStarted) {
+    return <MainMenu />;
+  }
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-[#081626]">
       <GameCanvas />
@@ -62,6 +70,8 @@ export default function App() {
       <MobileControls />
       <StoryPanel />
       <VoicePlayer />
+      {/* Waypoint navigation arrow — story mode only */}
+      <WaypointArrow />
     </div>
   );
 }

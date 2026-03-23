@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { ENEMY_WORLD_RADIUS } from "../components/Combat/Projectile";
 import { WEAPON_MAP } from "../config/weapons";
+import {
+  groundTargetPosition,
+  useGroundTargetStore,
+} from "../stores/groundTargetStore";
 import { useEnemyStore } from "../stores/useEnemyStore";
 import { useProjectileStore } from "../stores/useProjectileStore";
 import { useWeaponsStore } from "../stores/useWeaponsStore";
@@ -25,14 +29,46 @@ export function handleFireButton(): boolean {
   useEnemyStore.getState().setAllHostile();
 
   const { addProjectile } = useProjectileStore.getState();
-  const lockedTarget = useEnemyStore.getState().lockedTarget;
+  const lockedEnemy = useEnemyStore.getState().lockedTarget;
+  const lockedGround = useGroundTargetStore.getState().lockedGroundTarget;
+
+  const fromPos = new THREE.Vector3(
+    cameraRef.posX,
+    cameraRef.posY,
+    cameraRef.posZ,
+  );
+
+  // ── Ground target fire ────────────────────────────────────────────────────
+  if (lockedGround && !lockedEnemy) {
+    const groundStore = useGroundTargetStore.getState();
+    const gt = groundStore.targets.find((t) => t.id === lockedGround);
+    if (gt) {
+      const [gx, gy, gz] = groundTargetPosition(gt.lat, gt.lon);
+      const targetPos = new THREE.Vector3(gx, gy, gz);
+      const dir = targetPos.clone().sub(fromPos).normalize();
+
+      addProjectile({
+        position: [fromPos.x, fromPos.y, fromPos.z],
+        direction: [dir.x, dir.y, dir.z],
+        speed: weapon.speed * 0.6, // slower arc to surface
+        damage: weapon.damage,
+        weaponType: activeWeapon,
+        color: activeWeapon === "rail" ? "#ffffff" : weapon.color,
+        maxLifetime: 8,
+        groundTargetId: lockedGround,
+      });
+
+      setCooldown(activeWeapon, 1 / weapon.fireRate);
+      consumeAmmo(activeWeapon);
+      return true;
+    }
+  }
 
   if (activeWeapon === "rail") {
     // Instant hitscan — damage locked target immediately
-    if (lockedTarget) {
-      useEnemyStore.getState().damageEnemy(lockedTarget, weapon.damage);
+    if (lockedEnemy) {
+      useEnemyStore.getState().damageEnemy(lockedEnemy, weapon.damage);
     }
-    // Spawn a brief visual beam (damage already applied or no target)
     addProjectile({
       position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
       direction: [cameraRef.forwardX, cameraRef.forwardY, cameraRef.forwardZ],
@@ -48,11 +84,10 @@ export function handleFireButton(): boolean {
   }
 
   if (activeWeapon === "missile") {
-    // Requires a locked target
-    if (!lockedTarget) return false;
+    if (!lockedEnemy) return false;
     const enemy = useEnemyStore
       .getState()
-      .enemies.find((e) => e.id === lockedTarget);
+      .enemies.find((e) => e.id === lockedEnemy);
     if (!enemy) return false;
 
     const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
@@ -60,11 +95,6 @@ export function handleFireButton(): boolean {
     const ty = dist * Math.sin(enemy.phi);
     const tz = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
     const targetPos = new THREE.Vector3(tx, ty, tz);
-    const fromPos = new THREE.Vector3(
-      cameraRef.posX,
-      cameraRef.posY,
-      cameraRef.posZ,
-    );
     const dir = targetPos.clone().sub(fromPos).normalize();
 
     addProjectile({
@@ -75,7 +105,7 @@ export function handleFireButton(): boolean {
       weaponType: "missile",
       color: weapon.color,
       maxLifetime: 6,
-      targetId: lockedTarget,
+      targetId: lockedEnemy,
     });
 
     setCooldown(activeWeapon, 1 / weapon.fireRate);
@@ -96,7 +126,6 @@ export function handleFireButton(): boolean {
   const distanceFactor = Math.min(distanceToTarget / 80, 1);
   const spread = baseSpread + distanceFactor * 0.06;
 
-  // Primary bolt
   addProjectile({
     position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
     direction: [cameraRef.forwardX, cameraRef.forwardY, cameraRef.forwardZ],
@@ -107,7 +136,6 @@ export function handleFireButton(): boolean {
     maxLifetime: 3,
   });
 
-  // Two spread bolts
   for (let i = 0; i < 2; i++) {
     const offsetX = (Math.random() - 0.5) * spread;
     const offsetY = (Math.random() - 0.5) * spread;
