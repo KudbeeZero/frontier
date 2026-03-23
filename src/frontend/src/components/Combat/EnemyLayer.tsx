@@ -1,5 +1,6 @@
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useRef } from "react";
 import * as THREE from "three";
 import { ENEMY_CONFIG_MAP, PHASE_ENEMY_POOL } from "../../config/enemies";
 import { useEnemyStore } from "../../stores/useEnemyStore";
@@ -7,75 +8,95 @@ import type { Enemy, EnemyType } from "../../types/game";
 import { ENEMY_WORLD_RADIUS } from "./Projectile";
 
 const ENEMY_VISUAL_SCALE = 10;
-const MAX_ENEMIES = 6;
-const SPAWN_INTERVAL = 10; // seconds
 
 let nextId = 1;
-let spawnTimer = 0;
 
 function getWavePool(wave: number): EnemyType[] {
   const clamped = Math.min(Math.max(wave, 1), 6) as 1 | 2 | 3 | 4 | 5 | 6;
   return (PHASE_ENEMY_POOL[clamped] ?? PHASE_ENEMY_POOL[1]) as EnemyType[];
 }
 
-function spawnEnemy(wave: number) {
-  const pool = getWavePool(wave);
-  const type = pool[Math.floor(Math.random() * pool.length)];
-  const cfg = ENEMY_CONFIG_MAP[type];
-  if (!cfg) return;
+function spawnInitialEnemies() {
+  const pool = getWavePool(1);
+  // Spread 6 enemies evenly around the asteroid field (lane 3)
+  for (let i = 0; i < 6; i++) {
+    const type = pool[i % pool.length];
+    const cfg = ENEMY_CONFIG_MAP[type];
+    if (!cfg) continue;
 
-  const enemy: Enemy = {
-    id: `enemy-${nextId++}-${Date.now()}`,
-    type,
-    theta: Math.random() * Math.PI * 2,
-    phi: (Math.random() - 0.5) * Math.PI * 0.4,
-    distance: ENEMY_WORLD_RADIUS,
-    hp: cfg.hp,
-    maxHp: cfg.hp,
-    speed: cfg.speed,
-    damage: cfg.damage,
-    reward: cfg.reward,
-    scoreValue: cfg.scoreValue,
-  };
+    const enemy: Enemy = {
+      id: `enemy-${nextId++}-${Date.now() + i}`,
+      type,
+      theta: (i / 6) * Math.PI * 2 + Math.random() * 0.4,
+      phi: (Math.random() - 0.5) * Math.PI * 0.35,
+      distance: ENEMY_WORLD_RADIUS,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      speed: cfg.speed,
+      damage: cfg.damage,
+      reward: cfg.reward,
+      scoreValue: cfg.scoreValue,
+      hostile: false,
+    };
 
-  useEnemyStore.getState().addEnemy(enemy);
+    useEnemyStore.getState().addEnemy(enemy);
+  }
 }
 
 function EnemyMesh({ enemy }: { enemy: Enemy }) {
-  // All hooks at the top -- before any conditional returns
   const groupRef = useRef<THREE.Group>(null);
+  const isLocked = useEnemyStore((s) => s.lockedTarget === enemy.id);
 
   const cfg = ENEMY_CONFIG_MAP[enemy.type];
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!groupRef.current || !cfg) return;
 
     const currentDist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+
+    if (!enemy.hostile) {
+      // Patrol: slowly orbit at fixed radius
+      enemy.theta += delta * enemy.speed * 0.3;
+
+      const x = currentDist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+      const y = currentDist * Math.sin(enemy.phi);
+      const z = currentDist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+
+      groupRef.current.position.set(x, y, z);
+      groupRef.current.lookAt(0, 0, 0);
+
+      // Range check: become hostile when player gets close
+      const camPos = state.camera.position;
+      const distToPlayer = Math.sqrt(
+        (camPos.x - x) ** 2 + (camPos.y - y) ** 2 + (camPos.z - z) ** 2,
+      );
+      if (distToPlayer < 40) {
+        useEnemyStore.getState().setEnemyHostile(enemy.id);
+      }
+      return;
+    }
+
+    // Hostile behavior: advance toward player/Earth
     const enemyPos = new THREE.Vector3(
       currentDist * Math.cos(enemy.phi) * Math.cos(enemy.theta),
       currentDist * Math.sin(enemy.phi),
       currentDist * Math.cos(enemy.phi) * Math.sin(enemy.theta),
     );
 
-    // Direction toward player
     const playerPos = state.camera.position.clone();
     const toPlayer = playerPos.sub(enemyPos).normalize();
-
-    // Direction toward Earth (origin)
     const toEarth = enemyPos.clone().normalize().negate();
-
-    // Blend: 70% toward Earth, 30% toward player
     const direction = toEarth.lerp(toPlayer, 0.3).normalize();
 
-    // Use actual delta for accurate movement
-    const newPos = enemyPos.addScaledVector(
-      direction,
-      cfg.speed * state.clock.getDelta(),
-    );
+    // Use a fixed delta cap to avoid large jumps
+    const dt = Math.min(delta, 0.05);
+    const newPos = enemyPos.addScaledVector(direction, cfg.speed * dt);
 
     enemy.distance = newPos.length();
     enemy.theta = Math.atan2(newPos.z, newPos.x);
-    enemy.phi = Math.asin(Math.max(-1, Math.min(1, newPos.y / enemy.distance)));
+    enemy.phi = Math.asin(
+      Math.max(-1, Math.min(1, newPos.y / (enemy.distance || 1))),
+    );
 
     groupRef.current.position.copy(newPos);
     groupRef.current.lookAt(0, 0, 0);
@@ -105,10 +126,24 @@ function EnemyMesh({ enemy }: { enemy: Enemy }) {
         <meshStandardMaterial
           color={cfg.color}
           emissive={cfg.color}
-          emissiveIntensity={0.25}
+          emissiveIntensity={enemy.hostile ? 0.5 : 0.15}
         />
       </mesh>
       <pointLight color={cfg.color} intensity={0.6} distance={size * 4} />
+
+      {/* Cyan lock-on ring */}
+      {isLocked && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[size * 0.9, size * 0.06, 8, 32]} />
+          <meshBasicMaterial
+            color="#00ffff"
+            wireframe={false}
+            transparent
+            opacity={0.85}
+          />
+        </mesh>
+      )}
+
       {/* HP bar background */}
       <mesh position={[0, size * 0.9, 0]}>
         <planeGeometry args={[size * 1.2, size * 0.12]} />
@@ -137,25 +172,11 @@ export function EnemyLayer() {
   const { enemies } = useEnemyStore();
 
   useEffect(() => {
-    for (let i = 0; i < 3; i++) {
-      setTimeout(() => {
-        if (useEnemyStore.getState().enemies.length < MAX_ENEMIES) {
-          spawnEnemy(useEnemyStore.getState().wave);
-        }
-      }, i * 1800);
+    // Spawn 6 enemies immediately on mount
+    if (useEnemyStore.getState().enemies.length === 0) {
+      spawnInitialEnemies();
     }
   }, []);
-
-  useFrame((_, delta) => {
-    spawnTimer += delta;
-    if (spawnTimer >= SPAWN_INTERVAL) {
-      spawnTimer = 0;
-      const state = useEnemyStore.getState();
-      if (state.enemies.length < MAX_ENEMIES) {
-        spawnEnemy(state.wave);
-      }
-    }
-  });
 
   return (
     <>

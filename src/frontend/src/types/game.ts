@@ -139,6 +139,8 @@ export interface Enemy {
   damage: number;
   reward: number;
   scoreValue: number;
+  /** Whether this enemy is actively hostile toward the player */
+  hostile: boolean;
 }
 
 export type GamePhase = 1 | 2 | 3 | 4 | 5 | 6;

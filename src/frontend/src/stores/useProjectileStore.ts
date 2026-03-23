@@ -11,6 +11,7 @@ export interface ProjectileData {
   color: string;
   maxLifetime: number;
   createdAt: number;
+  targetId?: string;
 }
 
 interface ProjectileState {

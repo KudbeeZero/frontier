@@ -1,51 +1,44 @@
-# Frontier: Orbital Combat
+# Frontier: Orbital Combat — Story Mode System
 
 ## Current State
-- Earth globe with day/night textures, atmospheric glow, slow rotation
-- Orbital camera (WASD + mobile joystick) with physics drag
-- Targeting reticle on Earth click, 1.5s lock-on with progress arc
-- 4 weapons (Pulse, Rail, Missile, EMP) with cooldown/ammo/reload UI
-- FIRE button + spacebar trigger; missile requires lock
-- HUD: StatusPanel (top-left), RadarPanel (top-right), WeaponConsole (bottom-center), MobileJoystick
-- No projectiles, no enemies, no landscape lock, dim Earth lighting
+- `storyStore.ts` exists with basic event structure (3 existing events: p1_systems_damaged, p1_scan_results, p1_repair_start), `triggerEvent`, `selectChoice`, `dismiss` actions. No completed events tracking, no stage system, no story mode flag.
+- `StoryPanel.tsx` exists with full UI (choices, effects labels, cyan styling), but no slide animation and not wired to a STORY MODE entry.
+- `StoryEventPanel.tsx` exists as alternate panel variant with slide-up animation.
+- `voiceNarration.ts` exists with browser `speechSynthesis` fallback.
+- No SpaceDepot 3D object.
+- No ElevenLabs service.
+- No STORY MODE entry point in the UI.
+- `GameCanvas.tsx` has no story mode spawning logic.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `config/enemies.ts` — 3 enemy types (satellite_light, satellite_weapons, asteroid) with health/size/color/points
-- `stores/useProjectilesStore.ts` — projectile spawn, per-frame movement, collision vs enemies, impact tracking
-- `stores/useEnemyStore.ts` — enemy spawn (3 on load, then every 12s, max 8), damage, score, impacts list
-- `components/game/ProjectileSystem.tsx` — per-weapon 3D mesh (sphere/cylinder) with emissive + point light
-- `components/game/EnemyLayer.tsx` — box meshes above Earth surface, health bar, fade on destroy, spawn on mount
-- `components/game/ImpactEffect.tsx` — flash sphere that expands + fades on hit, driven by impacts list in enemy store
-- `components/ui/ScorePanel.tsx` — score + kills counter
-- `components/ui/FPSCounter.tsx` — bottom-right FPS monitor
-- Landscape lock — CSS orient portrait→rotate 90deg so game always runs landscape on mobile
+- `src/frontend/src/services/elevenLabsService.ts` — ElevenLabs TTS service with placeholder voice IDs (`narrator_placeholder`, `aegis_placeholder`). Falls back to browser `speechSynthesis` if no API key. Exported `playVoiceLine(text, voiceId)` function.
+- `src/frontend/src/components/Story/VoicePlayer.tsx` — React component that wraps voice playback; auto-plays A.E.G.I.S. dialogue when story event becomes visible.
+- `src/frontend/src/objects/SpaceDepot.tsx` — 3D space station model using cylinders/cubes at world position (500, 0, 500). Includes proximity detection: tracks distance to camera/player; when within 50 units, surfaces `isNearDepot=true` to a store or callback. Emits a "DOCK" button via a portal/HUD hook when near.
+- 3 new story events in `storyStore.ts`: "depot_arrival" (docking trigger), "systems_critical" (auto-trigger at 30s), "strange_signal" (unlocks after events 1 & 2 completed).
+- `completedEvents: string[]`, `currentStage: number`, `isStoryMode: boolean`, `storyStartTime: number | null`, `nearDepot: boolean`, `setNearDepot`, `enterStoryMode`, `markEventComplete` actions added to storyStore.
+- STORY MODE button in the HUD nav bar (next to mode toggles), visible when not in story mode.
+- Story mode spawn logic: sets camera/player position 100 units from depot, shows notification "Fly to the depot and dock to begin".
+- DOCK button overlay (rendered in HUD) when `nearDepot === true` in story mode.
+- Auto-trigger logic for "systems_critical" event (30s after story mode starts) in a useEffect in App or GameCanvas.
+- Strange Signal unlock check after completing events 1 & 2.
 
 ### Modify
-- `App.tsx` — raise ambient (0.08→0.4) and directional (1.2→2.5) light; add EnemyLayer, ProjectileSystem, FPSCounter
-- `EarthGlobe.tsx` — raise emissiveIntensity (0.22→0.35) for brighter city lights
-- `stores/useWeaponsStore.ts` — in fire(), calculate real camera position from useShipStore theta/phi, spawn projectile toward target or Earth center
-- `components/game/CameraController.tsx` — also tick useProjectilesStore and useEnemyStore each frame
-- `components/hud/StatusPanel.tsx` — add color-coded progress bars (Hull/Power/O₂)
-- `components/hud/RadarPanel.tsx` — show enemy dots relative to player position, animated sweep line
-- `components/game/HUD.tsx` — add ScorePanel and FPSCounter
-- `index.css` — portrait→landscape CSS rotation for landscape lock
+- `storyStore.ts` — add new fields/actions listed above; add 3 new events; keep existing events intact.
+- `StoryPanel.tsx` — ensure slide-up animation (translateY 100% → 0, 0.3s ease-out), covers bottom 50% of screen, dark bg with 60% black overlay on game, cyan top border, mobile-friendly 60px min button height.
+- `GameCanvas.tsx` — add `<SpaceDepot />` to the 3D scene.
+- `App.tsx` — mount `<StoryPanel />` and `<VoicePlayer />` conditionally; add story mode 30s auto-trigger effect.
 
 ### Remove
-- Nothing removed
+- Nothing removed; existing story events and panels preserved.
 
 ## Implementation Plan
-1. Add enemies config
-2. Add projectiles store (spawn, tick with collision, impacts)
-3. Add enemy store (spawn, damage, score, impacts)
-4. Wire useWeaponsStore.fire() to spawn projectile from real camera pos
-5. Add CameraController ticks for projectile and enemy stores
-6. Build ProjectileSystem renderer (per-weapon geometry, emissive, point light)
-7. Build EnemyLayer renderer (box mesh, health bar, impact effects)
-8. Build ImpactEffect (expanding flash sphere)
-9. Build ScorePanel and FPSCounter
-10. Update StatusPanel and RadarPanel with live data
-11. Update HUD to include new panels
-12. Raise lighting in App.tsx and EarthGlobe.tsx
-13. Add landscape CSS lock
+1. Create `elevenLabsService.ts` with `playVoiceLine(text, voiceId)` using ElevenLabs REST API if `VITE_ELEVENLABS_API_KEY` env var exists, otherwise falls back to `speechSynthesis`.
+2. Update `storyStore.ts`: add `completedEvents`, `currentStage`, `isStoryMode`, `storyStartTime`, `nearDepot`, and new actions; add 3 new story events with correct choices and resource effects.
+3. Create `SpaceDepot.tsx` 3D object (cylinders + boxes geometry) positioned at [500,0,500]; use `useFrame` to measure distance from camera; call `useStoryStore.getState().setNearDepot(bool)` when within 50 units.
+4. Update `StoryPanel.tsx` with slide-up CSS animation, 50% bottom coverage, 60% overlay, cyan border, 60px min button height.
+5. Create `VoicePlayer.tsx` that watches `currentEvent`+`isVisible` and calls `playVoiceLine`.
+6. Update `GameCanvas.tsx` to include `<SpaceDepot />`.
+7. Update `App.tsx`: mount `<StoryPanel />`, `<VoicePlayer />`; add 30s timer effect for systems_critical; add DOCK button when `nearDepot && isStoryMode`.
+8. Add STORY MODE button to the HUD navigation bar with `enterStoryMode` action that repositions player near depot and shows notification.

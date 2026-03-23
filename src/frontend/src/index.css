@@ -31,7 +31,7 @@ body {
   height: 100%;
 }
 
-/* ── Landscape orientation lock ────────────────────────────────── */
+/* ── Landscape orientation lock ─────────────────────────────────────── */
 @media screen and (max-width: 768px) and (orientation: portrait) {
   body::before {
     content: "Please rotate your device to landscape mode";
@@ -52,7 +52,6 @@ body {
     padding: 2rem;
   }
 
-  /* Hide game content in portrait */
   #root {
     display: none;
   }
@@ -76,9 +75,9 @@ body {
 
 /* HUD panel base */
 .hud-panel {
-  background: rgba(25, 45, 60, 0.55);
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 230, 255, 0.25);
+  border: 1px solid rgba(0, 200, 255, 0.5);
   border-radius: 8px;
 }
 
@@ -106,6 +105,39 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* ── Panel show/hide: 300ms ease-out ────────────────────────────────── */
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── MechLog panel-in (not centered) ───────────────────────────────── */
+@keyframes mechPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 /* Star twinkle */
 @keyframes twinkle {
   0%,
@@ -119,7 +151,7 @@ body {
   }
 }
 
-/* Slide in animation */
+/* Slide in from top */
 @keyframes slide-in-from-top {
   from {
     opacity: 0;
@@ -132,7 +164,7 @@ body {
 }
 
 .animate-in {
-  animation-duration: 0.2s;
+  animation-duration: 0.3s;
   animation-fill-mode: both;
 }
 
@@ -150,15 +182,27 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 230, 255, 0.3);
+  background: rgba(0, 200, 255, 0.3);
   border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 230, 255, 0.6);
+  background: rgba(0, 200, 255, 0.6);
 }
 
-/* slide-in-bottom animation for WeaponPanel */
+/* fadeInUp for log entries */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* slide-in-bottom for WeaponPanel */
 @keyframes slide-in-bottom {
   from {
     opacity: 0;
@@ -170,5 +214,5 @@ body {
   }
 }
 .animate-slide-in-bottom {
-  animation: slide-in-bottom 0.4s ease-out both;
+  animation: slide-in-bottom 0.3s ease-out both;
 }

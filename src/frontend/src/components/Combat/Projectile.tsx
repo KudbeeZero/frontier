@@ -22,6 +22,7 @@ interface ProjectileProps {
   color: string;
   maxLifetime: number;
   weaponType: WeaponId;
+  targetId?: string;
   onExpire: (id: string) => void;
   onHit: (id: string) => void;
 }
@@ -34,6 +35,8 @@ export function Projectile({
   damage,
   color,
   maxLifetime,
+  weaponType,
+  targetId,
   onExpire,
   onHit,
 }: ProjectileProps) {
@@ -50,6 +53,22 @@ export function Projectile({
     if (ageRef.current > maxLifetime) {
       onExpire(id);
       return;
+    }
+
+    // Missile homing: curve direction toward target
+    if (weaponType === "missile" && targetId) {
+      const enemy = useEnemyStore
+        .getState()
+        .enemies.find((e) => e.id === targetId);
+      if (enemy) {
+        const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+        const tx = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+        const ty = dist * Math.sin(enemy.phi);
+        const tz = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+        const targetVec = new THREE.Vector3(tx, ty, tz);
+        const toTarget = targetVec.clone().sub(posRef.current).normalize();
+        dirRef.current.lerp(toTarget, delta * 3).normalize();
+      }
     }
 
     // Move projectile
@@ -106,11 +125,22 @@ export function Projectile({
     }
   });
 
+  // Rail gun: show as a bright elongated beam
+  const isRail = weaponType === "rail";
+
   return (
     <mesh ref={meshRef} position={position}>
-      <sphereGeometry args={[0.3, 6, 6]} />
+      {isRail ? (
+        <cylinderGeometry args={[0.05, 0.05, 4, 4]} />
+      ) : (
+        <sphereGeometry args={[0.3, 6, 6]} />
+      )}
       <meshBasicMaterial color={color} />
-      <pointLight color={color} intensity={2} distance={8} />
+      <pointLight
+        color={color}
+        intensity={isRail ? 4 : 2}
+        distance={isRail ? 12 : 8}
+      />
     </mesh>
   );
 }

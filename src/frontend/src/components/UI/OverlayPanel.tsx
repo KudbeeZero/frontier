@@ -19,10 +19,17 @@ export function OverlayPanel({ title, children }: OverlayPanelProps) {
 
   return (
     <>
-      {/* Semi-transparent backdrop */}
+      {/* Backdrop — 300ms ease-out */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-        style={{ zIndex: 48 }}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.35)",
+          backdropFilter: "blur(4px)",
+          zIndex: 48,
+          // Panel show: 300ms ease-out
+          animation: "backdropIn 300ms ease-out",
+        }}
         onClick={closePanel}
         onKeyDown={(e) => e.key === "Escape" && closePanel()}
         role="button"
@@ -30,32 +37,77 @@ export function OverlayPanel({ title, children }: OverlayPanelProps) {
         aria-label="Close panel"
       />
 
-      {/* Panel */}
+      {/* Panel — 300ms ease-out slide-in */}
       <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[480px] max-h-[80vh] flex flex-col rounded-lg overflow-hidden"
         style={{
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "90vw",
+          maxWidth: "480px",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: "8px",
+          overflow: "hidden",
           zIndex: 50,
-          background: "rgba(0,0,0,0.75)",
-          border: "2px solid rgba(0,200,255,0.55)",
-          boxShadow:
-            "0 0 30px rgba(0,200,255,0.15), inset 0 0 20px rgba(0,0,0,0.4)",
+          // Standardized 30% opacity
+          background: "rgba(0,0,0,0.3)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(0,200,255,0.5)",
+          boxShadow: "0 0 40px rgba(0,200,255,0.12)",
+          // Panel show: 300ms ease-out
+          animation: "panelIn 300ms ease-out",
         }}
       >
         {/* Title bar */}
         <div
-          className="flex items-center justify-between px-5 py-3 shrink-0"
           style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 20px",
+            flexShrink: 0,
             borderBottom: "1px solid rgba(0,200,255,0.25)",
             background: "rgba(0,200,255,0.06)",
           }}
         >
-          <span className="text-cyan-400 font-bold uppercase tracking-widest text-xs font-mono">
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: "11px",
+              fontWeight: "bold",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              // Primary cyan for interactive labels
+              color: "#00ccff",
+              textShadow: "0 0 8px rgba(0,200,255,0.5)",
+            }}
+          >
             {title}
           </span>
           <button
             type="button"
             onClick={closePanel}
-            className="text-cyan-500 hover:text-white text-lg leading-none transition-colors"
+            style={{
+              color: "rgba(255,255,255,0.7)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "16px",
+              lineHeight: 1,
+              padding: "4px",
+              // 150ms interactive
+              transition: "color 150ms ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLButtonElement).style.color = "#ffffff";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLButtonElement).style.color =
+                "rgba(255,255,255,0.7)";
+            }}
             data-ocid="overlay.close_button"
           >
             ✕
@@ -63,7 +115,18 @@ export function OverlayPanel({ title, children }: OverlayPanelProps) {
         </div>
 
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 p-5">{children}</div>
+        <div
+          style={{
+            overflowY: "auto",
+            flex: 1,
+            padding: "20px",
+            fontFamily: "monospace",
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.85)",
+          }}
+        >
+          {children}
+        </div>
       </div>
     </>
   );

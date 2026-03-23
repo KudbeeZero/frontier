@@ -5,17 +5,27 @@ interface WeaponsState {
   activeWeapon: WeaponId;
   cooldowns: Record<string, number>;
   ammo: Record<string, number>;
+  missileLocking: boolean;
+  missileLockTimer: number;
+  missileLockTarget: string | null;
 
   setActiveWeapon: (id: WeaponId) => void;
   setCooldown: (weaponId: string, value: number) => void;
   tickCooldowns: (delta: number) => void;
   consumeAmmo: (weaponId: string) => void;
+  startMissileLock: (targetId: string) => void;
+  cancelMissileLock: () => void;
+  /** Returns true when lock is complete (timer >= 1.5s) */
+  tickMissileLock: (delta: number) => boolean;
 }
 
-export const useWeaponsStore = create<WeaponsState>((set) => ({
+export const useWeaponsStore = create<WeaponsState>((set, get) => ({
   activeWeapon: "pulse",
   cooldowns: { pulse: 0, rail: 0, missile: 0 },
   ammo: { pulse: Number.POSITIVE_INFINITY, rail: 50, missile: 10 },
+  missileLocking: false,
+  missileLockTimer: 0,
+  missileLockTarget: null,
 
   setActiveWeapon: (id) => set({ activeWeapon: id }),
 
@@ -40,4 +50,30 @@ export const useWeaponsStore = create<WeaponsState>((set) => ({
         [weaponId]: Math.max(0, (state.ammo[weaponId] ?? 0) - 1),
       },
     })),
+
+  startMissileLock: (targetId) =>
+    set({
+      missileLocking: true,
+      missileLockTimer: 0,
+      missileLockTarget: targetId,
+    }),
+
+  cancelMissileLock: () =>
+    set({
+      missileLocking: false,
+      missileLockTimer: 0,
+      missileLockTarget: null,
+    }),
+
+  tickMissileLock: (delta) => {
+    const { missileLocking, missileLockTimer } = get();
+    if (!missileLocking) return false;
+    const newTimer = missileLockTimer + delta;
+    if (newTimer >= 1.5) {
+      set({ missileLocking: false, missileLockTimer: 0 });
+      return true;
+    }
+    set({ missileLockTimer: newTimer });
+    return false;
+  },
 }));

@@ -21,6 +21,7 @@ export interface StoryEvent {
 }
 
 const STORY_EVENTS: Record<string, StoryEvent> = {
+  // ── original events ──────────────────────────────────────────────────────
   p1_systems_damaged: {
     id: "p1_systems_damaged",
     speaker: "A.E.G.I.S.",
@@ -84,23 +85,105 @@ const STORY_EVENTS: Record<string, StoryEvent> = {
       },
     ],
   },
+  // ── story mode events ──────────────────────────────────────────────────
+  depot_arrival: {
+    id: "depot_arrival",
+    speaker: "A.E.G.I.S.",
+    dialogue: "Commander, this depot appears functional. We should resupply.",
+    choices: [
+      {
+        id: "repair_hull",
+        text: "Repair hull (+20 hull, -50 credits)",
+        effects: { hull: 20 },
+      },
+      {
+        id: "refuel",
+        text: "Refuel (+30 fuel)",
+        effects: { fuel: 30 },
+      },
+      {
+        id: "leave",
+        text: "Leave",
+        effects: {},
+      },
+    ],
+  },
+  systems_critical: {
+    id: "systems_critical",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "Warning. Multiple system failures detected. We need to act now, Commander.",
+    choices: [
+      {
+        id: "fix_life_support",
+        text: "Fix life support (+15 O\u2082, -10 PWR)",
+        effects: { oxygen: 15, power: -10 },
+      },
+      {
+        id: "repair_hull",
+        text: "Repair hull (+20 hull)",
+        effects: { hull: 20 },
+      },
+      {
+        id: "balance_systems",
+        text: "Balance systems (+5 all)",
+        effects: { oxygen: 5, hull: 5, power: 5, fuel: 5 },
+      },
+    ],
+  },
+  strange_signal: {
+    id: "strange_signal",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "I'm detecting an unusual transmission... Commander, this could be important.",
+    choices: [
+      {
+        id: "investigate",
+        text: "Investigate",
+        effects: {},
+      },
+      {
+        id: "ignore",
+        text: "Ignore",
+        effects: {},
+      },
+    ],
+  },
 };
 
 interface StoryState {
   currentEvent: StoryEvent | null;
   isVisible: boolean;
+  completedEvents: string[];
+  currentStage: number;
+  isStoryMode: boolean;
+  storyStartTime: number | null;
+  nearDepot: boolean;
+
   triggerEvent: (eventId: string) => void;
   selectChoice: (choice: StoryChoice) => void;
   dismiss: () => void;
+  enterStoryMode: () => void;
+  exitStoryMode: () => void;
+  setNearDepot: (near: boolean) => void;
+  markEventComplete: (eventId: string) => void;
+  checkUnlocks: () => void;
 }
 
-export const useStoryStore = create<StoryState>((set) => ({
+export const useStoryStore = create<StoryState>((set, get) => ({
   currentEvent: null,
   isVisible: false,
+  completedEvents: [],
+  currentStage: 1,
+  isStoryMode: false,
+  storyStartTime: null,
+  nearDepot: false,
+
   triggerEvent: (eventId: string) => {
     const event = STORY_EVENTS[eventId];
     if (event) set({ currentEvent: event, isVisible: true });
   },
+
   selectChoice: (choice: StoryChoice) => {
     // Apply resource effects to ship
     const effects = choice.effects ?? {};
@@ -110,15 +193,57 @@ export const useStoryStore = create<StoryState>((set) => ({
     if (effects.power) ship.updatePower(effects.power);
     if (effects.fuel) ship.updateFuel(effects.fuel);
 
+    // Mark the current event complete
+    const currentId = get().currentEvent?.id;
+    if (currentId) {
+      get().markEventComplete(currentId);
+    }
+
     // Navigate to next event or dismiss
     if (choice.nextEvent) {
       const next = STORY_EVENTS[choice.nextEvent];
       if (next) {
         set({ currentEvent: next, isVisible: true });
+        get().checkUnlocks();
         return;
       }
     }
     set({ isVisible: false });
+    get().checkUnlocks();
   },
+
   dismiss: () => set({ isVisible: false }),
+
+  enterStoryMode: () => {
+    // Lazy import to avoid circular deps
+    import("./cameraStore").then(({ useCameraStore }) => {
+      useCameraStore.getState().setMode("freeRoam");
+      useCameraStore.getState().setFreeRoamPos({ x: 420, y: 0, z: 420 });
+    });
+    set({ isStoryMode: true, storyStartTime: Date.now() });
+  },
+
+  exitStoryMode: () =>
+    set({ isStoryMode: false, storyStartTime: null, nearDepot: false }),
+
+  setNearDepot: (near: boolean) => set({ nearDepot: near }),
+
+  markEventComplete: (eventId: string) =>
+    set((s) => ({
+      completedEvents: s.completedEvents.includes(eventId)
+        ? s.completedEvents
+        : [...s.completedEvents, eventId],
+    })),
+
+  checkUnlocks: () => {
+    const { completedEvents, isVisible } = get();
+    if (
+      completedEvents.includes("depot_arrival") &&
+      completedEvents.includes("systems_critical") &&
+      !completedEvents.includes("strange_signal") &&
+      !isVisible
+    ) {
+      get().triggerEvent("strange_signal");
+    }
+  },
 }));

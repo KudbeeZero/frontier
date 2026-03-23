@@ -12,6 +12,8 @@ interface EnemyState {
   setLockedTarget: (id: string | null) => void;
   clearEnemies: () => void;
   incrementWave: () => void;
+  setAllHostile: () => void;
+  setEnemyHostile: (id: string) => void;
 }
 
 export const useEnemyStore = create<EnemyState>((set) => ({
@@ -38,4 +40,16 @@ export const useEnemyStore = create<EnemyState>((set) => ({
   clearEnemies: () => set({ enemies: [], lockedTarget: null }),
 
   incrementWave: () => set((state) => ({ wave: state.wave + 1 })),
+
+  setAllHostile: () =>
+    set((state) => ({
+      enemies: state.enemies.map((e) => ({ ...e, hostile: true })),
+    })),
+
+  setEnemyHostile: (id) =>
+    set((state) => ({
+      enemies: state.enemies.map((e) =>
+        e.id === id ? { ...e, hostile: true } : e,
+      ),
+    })),
 }));
