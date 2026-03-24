@@ -1,38 +1,37 @@
 # Frontier: Orbital Combat
 
 ## Current State
-Full-stack space combat game with Three.js. Has orbital lanes system (5 lanes at radii 1.6–2.8), combat targeting (enemy ships in space), projectile/explosion systems, enemy store, weapons store. Earth globe radius = 1.4 units. Camera orbits at lane + 0.5 offset. UI: top nav bar, HUD panels, weapon bar, notification system, gameStore with credits.
+- Ground target destruction system is live: 8 hardcoded targets on Earth surface, 100 HP each, 50 credits, all static.
+- Five orbital hex-grid rings exist on the Earth globe as decorative visual elements with no gameplay purpose.
+- `laneStore` controls camera orbital radius (radii [1.6, 1.9, 2.2, 2.5, 2.8]) and lane switching (Q/E or swipe).
+- Combat mode: player orbits Earth, locks onto ground targets (0.5s dwell), fires projectiles, targets take damage and are destroyed.
+- No level progression system exists. Once all 8 targets are destroyed, nothing happens.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `groundTargetStore.ts` — Zustand store: 8 targets with lat/lon positions on Earth surface (radius 1.4), hp=100, status (intact/damaged/destroyed), scorchMarks array, credits reward=50 per kill, destroyedCount
-- `GroundTargets.tsx` — 3D scene component: renders each target as a small cone/cylinder on Earth surface + point light glow. Color: green (intact), orange (damaged <50hp), red (critical <25hp). Destroyed targets leave scorch mark mesh. Targets rotate with Earth globe. Smoke particle-like flicker on damaged targets.
-- `GroundTargetReticle.tsx` — lock-on system: raycasts toward Earth center; detects which ground target is near crosshair in combat mode; requires 0.5s dwell time before locking; shows targeting box UI overlay with name, distance, health%.
-- `GroundTargetRadar.tsx` — compact radar overlay showing target positions relative to current orbital angle; placed top-right under combat log.
-- Update `CombatTargetingSystem.tsx` — integrate ground target detection alongside enemy detection.
-- Update `combat.ts` — when locked target is a ground target, fire projectile toward Earth surface point; calculate travel time from distance.
-- Update `Projectile.tsx` — check collision with ground targets; apply damage; trigger explosion at surface point; award credits + notification on kill.
-- Update `HUD.tsx` — add TargetCounter widget to TopStatusBar ("Targets: 5/8"); add ground target locked indicator; render GroundTargetRadar in combat mode.
-- Update `GameCanvas.tsx` — include GroundTargets and GroundTargetReticle in scene.
-- Update `EarthGlobe.tsx` — export EARTH_RADIUS constant (1.4).
+- `orbitalLevelStore.ts`: 5-level config system with level names, altitudes, target counts, HP, credit rewards, enemy types, return fire flags, shield regen flags.
+- `OrbitalLevelHUD.tsx`: Left-side panel showing all 5 levels with lock/active/complete status, current target counter, and level name.
+- `EnemyReturnFire.tsx`: Component active in combat mode for levels 4+; fires periodic hull damage at the player ship.
+- Level-complete animation/notification: "LEVEL COMPLETE - ADVANCING" notification + auto-advance after 2s.
+- Even target distribution per level using golden-angle sphere placement.
+- Shield HP on level 3 targets (4 of 16 have shields, 2x effective HP).
+- Shield regen system for level 5 targets.
 
 ### Modify
-- `gameStore.ts` — already has `addCredits`; no changes needed
-- `types/game.ts` — add GroundTarget interface
-- `NotificationSystem.tsx` — already handles success notifications
+- `groundTargetStore.ts`: Add `resetForLevel(level)` that generates level-appropriate targets. Add `shieldHp`/`shieldMaxHp`/`shieldRegenRate` fields.
+- `EarthGlobe.tsx`: Orbital rings now reflect level status — active (bright cyan), completed (dim green), locked (very dim gray). Show level number labels next to rings.
+- `HUD.tsx`: Show `OrbitalLevelHUD` in combat mode. Update target counter to show level context ("LVL 3 - 14/16").
+- `GameCanvas.tsx`: Add `EnemyReturnFire` component.
 
 ### Remove
-- Nothing removed
+- Hardcoded 8-target initial state in `groundTargetStore`; replaced by level-driven generation starting from level 1.
 
 ## Implementation Plan
-1. Add `GroundTarget` type to `types/game.ts`
-2. Create `groundTargetStore.ts` with 8 hardcoded targets at real-world continent coordinates converted to sphere lat/lon
-3. Create `GroundTargets.tsx` — 3D mesh group attached to Earth rotation, damage visual states, scorch marks
-4. Create ground target lock-on logic inside `CombatTargetingSystem.tsx` with 0.5s dwell timer
-5. Create `GroundTargetLockHUD.tsx` — targeting box overlay for locked ground target
-6. Update `combat.ts` `handleFireButton` to fire at locked ground targets
-7. Update `Projectile.tsx` to handle `groundTargetId` — arc projectile to surface, apply damage on arrival, trigger explosion, award credits
-8. Create `GroundTargetRadar.tsx` — polar minimap showing 8 target positions
-9. Update `HUD.tsx` — add target counter to status bar, ground target HUD, radar in combat
-10. Update `GameCanvas.tsx` — mount GroundTargets in scene
+1. Create `orbitalLevelStore.ts` with 5 level configs and progression logic.
+2. Update `groundTargetStore.ts` to support level-driven target generation with golden-angle distribution, optional shields, and shield regen.
+3. Create `OrbitalLevelHUD.tsx` showing 5-level ladder with status indicators.
+4. Create `EnemyReturnFire.tsx` for levels 4-5 damage logic.
+5. Update `EarthGlobe.tsx` rings to reflect level status colors.
+6. Update `HUD.tsx` to wire in the level HUD.
+7. Update `GameCanvas.tsx` to include EnemyReturnFire.

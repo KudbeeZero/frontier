@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { SpaceDepot } from "../../objects/SpaceDepot";
 import { useCameraStore } from "../../stores/cameraStore";
 import { useGameStore } from "../../stores/gameStore";
+import { useGroundTargetStore } from "../../stores/groundTargetStore";
 import { useLaneStore } from "../../stores/laneStore";
 import { useExplosionStore } from "../../stores/useExplosionStore";
 import { useProjectileStore } from "../../stores/useProjectileStore";
@@ -12,8 +13,10 @@ import { useWeaponsStore } from "../../stores/useWeaponsStore";
 import { CombatTargetingSystem } from "../Combat/CombatTargetingSystem";
 import { EnemyLabels } from "../Combat/EnemyLabels";
 import { EnemyLayer } from "../Combat/EnemyLayer";
+import { EnemyReturnFire } from "../Combat/EnemyReturnFire";
 import { Explosion } from "../Combat/Explosion";
 import { GroundTargets } from "../Combat/GroundTargets";
+import { LevelWatcher } from "../Combat/LevelWatcher";
 import { Projectile } from "../Combat/Projectile";
 import CraftingPanel from "../Crafting/CraftingPanel";
 import { AmbientUniverse } from "../Environment/AmbientUniverse";
@@ -32,6 +35,8 @@ function ProjectileLayer() {
 
   useFrame((_, delta) => {
     useWeaponsStore.getState().tickCooldowns(delta);
+    // Tick shield regen for level 5
+    useGroundTargetStore.getState().tickShieldRegen(delta);
   });
 
   return (
@@ -73,16 +78,12 @@ interface CameraOrbitControllerProps {
   keysDown: React.MutableRefObject<Set<string>>;
 }
 
-// Camera sits this many units above the lane plane in orbital mode
 const ORBITAL_HEIGHT = 0.6;
-// How far behind the ship the camera sits in combat mode (in orbit-angle radians)
 const COMBAT_BEHIND_ANGLE = 0.18;
-// Camera rides slightly outside the lane ring
 const ORBITAL_PULL_BACK = 0.5;
 const COCKPIT_Z = 2.0;
 const COCKPIT_Y = 0.22;
 const FREE_ROAM_SPEED = 1.5;
-// Combat camera height above the lane plane
 const COMBAT_HEIGHT = 0.28;
 
 function CameraOrbitController({
@@ -98,13 +99,10 @@ function CameraOrbitController({
     const state = useCameraStore.getState();
     const cameraMode = state.mode;
 
-    // ── COMBAT: rail-shooter ─────────────────────────────────────────────────────
     if (cameraMode === "combat") {
       const laneRadius = useLaneStore.getState().getCurrentRadius();
-
       thetaRef.current += delta * 0.04;
       const theta = thetaRef.current;
-
       const camAngle = theta - COMBAT_BEHIND_ANGLE;
       const camRadius = laneRadius + ORBITAL_PULL_BACK;
 
@@ -128,16 +126,13 @@ function CameraOrbitController({
 
       const aimPitch = state.aimPitch;
       const aimYaw = state.aimYaw;
-
       const toEarth = new THREE.Vector3(
         -currentPosRef.current.x,
         -currentPosRef.current.y,
         -currentPosRef.current.z,
       ).normalize();
-
       const up = new THREE.Vector3(0, 1, 0);
       const right = new THREE.Vector3().crossVectors(toEarth, up).normalize();
-
       const lookTarget = new THREE.Vector3(
         0 + right.x * Math.tan(aimYaw) * 1.5,
         Math.tan(aimPitch) * 1.5,
@@ -147,12 +142,10 @@ function CameraOrbitController({
       return;
     }
 
-    // ── FREE ROAM ───────────────────────────────────────────────────────────
     if (cameraMode === "freeRoam") {
       const yaw = state.freeRoamYaw;
       const pitch = state.freeRoamPitch;
       const pos = { ...state.freeRoamPos };
-
       const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
       const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
       const speed = FREE_ROAM_SPEED * delta;
@@ -182,7 +175,7 @@ function CameraOrbitController({
       return;
     }
 
-    // ── ORBITAL: lane-locked ring ───────────────────────────────────────────────
+    // ORBITAL
     const laneRadius = useLaneStore.getState().getCurrentRadius();
     const RADIUS = laneRadius + ORBITAL_PULL_BACK;
 
@@ -222,7 +215,6 @@ function CameraOrbitController({
         (COCKPIT_Y - currentPosRef.current.y) * lerpSpeed;
       currentPosRef.current.z +=
         (COCKPIT_Z - currentPosRef.current.z) * lerpSpeed;
-
       camera.position.set(
         currentPosRef.current.x,
         currentPosRef.current.y,
@@ -329,7 +321,6 @@ export default function GameCanvas() {
         gl={{ antialias: true, alpha: false }}
         style={{ background: "#050d1a" }}
       >
-        {/* Lighting */}
         <ambientLight intensity={0.4} />
         <directionalLight
           position={[100, 100, 50]}
@@ -358,12 +349,15 @@ export default function GameCanvas() {
 
         <CombatTargetingSystem />
 
+        {/* Level progression watcher + enemy return fire */}
+        <LevelWatcher />
+        <EnemyReturnFire />
+
         <StarField />
         <AmbientUniverse />
 
         <group position={[0, 0, 0]}>
           <EarthGlobe />
-          {/* Ground targets rotate with Earth (same parent group) */}
           <GroundTargets />
         </group>
 

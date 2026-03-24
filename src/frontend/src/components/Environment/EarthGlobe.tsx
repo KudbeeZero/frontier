@@ -4,6 +4,10 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useCameraStore } from "../../stores/cameraStore";
 import { useLaneStore } from "../../stores/laneStore";
+import {
+  ORBITAL_LEVEL_CONFIGS,
+  useOrbitalLevelStore,
+} from "../../stores/orbitalLevelStore";
 
 function generateHexGrid(radius: number, divisions: number) {
   const hexagons: { id: string; points: [number, number, number][] }[] = [];
@@ -27,9 +31,42 @@ function generateHexGrid(radius: number, divisions: number) {
   return hexagons;
 }
 
-const LANE_RADII: readonly [number, number, number, number, number] = [
-  1.6, 1.9, 2.2, 2.5, 2.8,
-];
+/** A tilted orbital ring for a level */
+function TiltedOrbitalRing({
+  radius,
+  color,
+  opacity,
+  lineWidth,
+  tiltX,
+}: {
+  radius: number;
+  color: string;
+  opacity: number;
+  lineWidth: number;
+  tiltX: number;
+}) {
+  const points = useMemo<[number, number, number][]>(() => {
+    const pts: [number, number, number][] = [];
+    const segments = 96;
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      pts.push([Math.cos(angle) * radius, 0, Math.sin(angle) * radius]);
+    }
+    return pts;
+  }, [radius]);
+
+  return (
+    <group rotation={[tiltX, 0, 0]}>
+      <Line
+        points={points}
+        color={color}
+        lineWidth={lineWidth}
+        transparent
+        opacity={opacity}
+      />
+    </group>
+  );
+}
 
 function HexShell({
   radius,
@@ -41,8 +78,6 @@ function HexShell({
   isOrbital: boolean;
 }) {
   const hexagons = useMemo(() => generateHexGrid(radius, 6), [radius]);
-
-  // Orbital: bright (0.7 active / 0.2 inactive), Cockpit: very dim (0.08 active / 0.03 inactive)
   const activeOpacity = isOrbital ? 0.75 : 0.08;
   const inactiveOpacity = isOrbital ? 0.2 : 0.03;
 
@@ -68,17 +103,47 @@ export function EarthGlobe() {
   const dayTexture = useTexture("/textures/earth_day.jpg");
 
   useFrame((_, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * 0.05;
-    }
-    if (hexGroupRef.current) {
-      hexGroupRef.current.rotation.y += delta * 0.05;
-    }
+    if (meshRef.current) meshRef.current.rotation.y += delta * 0.05;
+    if (hexGroupRef.current) hexGroupRef.current.rotation.y += delta * 0.05;
   });
 
   const currentLane = useLaneStore((s) => s.currentLane);
   const cameraMode = useCameraStore((s) => s.mode);
   const isOrbital = cameraMode === "orbital";
+  const levelStatus = useOrbitalLevelStore((s) => s.levelStatus);
+  const currentLevel = useOrbitalLevelStore((s) => s.currentLevel);
+
+  const ringParams = ORBITAL_LEVEL_CONFIGS.map((cfg) => {
+    const status = levelStatus[cfg.level];
+    const isActiveLevel = cfg.level === currentLevel;
+    const isCompletedLevel = status === "completed";
+    const isLockedLevel = status === "locked";
+
+    let color = cfg.ringColor;
+    let opacity = 0.15;
+    let lineWidth = 0.6;
+
+    if (isActiveLevel) {
+      opacity = cameraMode === "combat" ? 0.8 : 0.5;
+      lineWidth = 2.0;
+    } else if (isCompletedLevel) {
+      color = "#00ff88";
+      opacity = cameraMode === "combat" ? 0.3 : 0.2;
+      lineWidth = 0.8;
+    } else if (isLockedLevel) {
+      color = "#334455";
+      opacity = cameraMode === "combat" ? 0.12 : 0.08;
+      lineWidth = 0.5;
+    }
+
+    if (cameraMode !== "combat" && cameraMode !== "orbital") {
+      opacity *= 0.15;
+    }
+
+    return { cfg, color, opacity, lineWidth };
+  });
+
+  const TILTS = [0, 0.15, -0.12, 0.08, -0.18];
 
   return (
     <>
@@ -89,8 +154,6 @@ export function EarthGlobe() {
           roughness={0.8}
           metalness={0.1}
         />
-
-        {/* Atmosphere glow layers */}
         <mesh scale={1.025}>
           <sphereGeometry args={[1.4, 32, 32]} />
           <meshBasicMaterial
@@ -138,9 +201,8 @@ export function EarthGlobe() {
         </mesh>
       </mesh>
 
-      {/* 5 concentric hex lane shells — opacity adapts to camera mode */}
       <group ref={hexGroupRef}>
-        {LANE_RADII.map((r, i) => (
+        {[1.6, 1.9, 2.2, 2.5, 2.8].map((r, i) => (
           <HexShell
             key={r}
             radius={r}
@@ -148,6 +210,30 @@ export function EarthGlobe() {
             isOrbital={isOrbital}
           />
         ))}
+
+        {ringParams.map(({ cfg, color, opacity, lineWidth }, i) => (
+          <TiltedOrbitalRing
+            key={cfg.level}
+            radius={cfg.radius}
+            color={color}
+            opacity={opacity}
+            lineWidth={lineWidth}
+            tiltX={TILTS[i]}
+          />
+        ))}
+
+        {ringParams
+          .filter(({ cfg }) => cfg.level === currentLevel)
+          .map(({ cfg, color }) => (
+            <TiltedOrbitalRing
+              key={`glow-${cfg.level}`}
+              radius={cfg.radius}
+              color={color}
+              opacity={0.15}
+              lineWidth={4.0}
+              tiltX={TILTS[cfg.level - 1]}
+            />
+          ))}
       </group>
     </>
   );

@@ -5,6 +5,7 @@ import { useCameraStore } from "../../stores/cameraStore";
 import { useGroundTargetStore } from "../../stores/groundTargetStore";
 import { useLaneStore } from "../../stores/laneStore";
 import { useMenuStore } from "../../stores/menuStore";
+import { useOrbitalLevelStore } from "../../stores/orbitalLevelStore";
 import { useShipStore } from "../../stores/shipStore";
 import { useStoryStore } from "../../stores/storyStore";
 import { useEnemyStore } from "../../stores/useEnemyStore";
@@ -20,6 +21,7 @@ import { CombatLogWatcher } from "./CombatLog";
 import { MechLogPanel } from "./MechLogPanel";
 import MiningAlert from "./MiningAlert";
 import NotificationSystem from "./NotificationSystem";
+import { OrbitalLevelHUD } from "./OrbitalLevelHUD";
 import { QuickInventoryGrid } from "./QuickInventoryGrid";
 import { SettingsPanel } from "./SettingsPanel";
 import { WeaponStashCards } from "./WeaponStashCards";
@@ -174,6 +176,7 @@ function TopStatusBar() {
     (s) => s.targets.filter((t) => t.status !== "destroyed").length,
   );
   const totalTargets = useGroundTargetStore((s) => s.targets.length);
+  const currentLevel = useOrbitalLevelStore((s) => s.currentLevel);
 
   const hullPct = Math.max(0, Math.min(100, (hull / maxHull) * 100));
   const o2Pct = Math.max(0, Math.min(100, oxygen));
@@ -321,7 +324,7 @@ function TopStatusBar() {
                 aliveTargets === 0 ? "0 0 8px rgba(0,255,136,0.7)" : "none",
             }}
           >
-            TARGETS: {aliveTargets}/{totalTargets}
+            LVL{currentLevel} — {aliveTargets}/{totalTargets}
           </span>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -590,9 +593,7 @@ function DockButton() {
   const isStoryMode = useStoryStore((s) => s.isStoryMode);
   const isVisible = useStoryStore((s) => s.isVisible);
   const triggerEvent = useStoryStore((s) => s.triggerEvent);
-
   if (!nearDepot || !isStoryMode || isVisible) return null;
-
   return (
     <div
       style={{
@@ -650,7 +651,6 @@ function StoryModeNotification() {
   }, [isStoryMode, prevMode]);
 
   if (!show) return null;
-
   return (
     <div
       data-ocid="story.toast"
@@ -712,17 +712,10 @@ export default function HUD(_props: HUDProps) {
   return (
     <>
       <CombatLogWatcher />
-
-      {/* Top mode nav bar */}
       <TopNavBar />
-
-      {/* Settings gear — top right */}
       <SettingsPanel />
-
-      {/* Top status bar: O2 / HULL / SECTOR + target counter */}
       <TopStatusBar />
 
-      {/* HUD panels layer */}
       <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 20 }}>
         {isCombat && <AimCone />}
         {isCombat && <CombatReticle />}
@@ -736,22 +729,15 @@ export default function HUD(_props: HUDProps) {
         <QuickInventoryGrid />
       </div>
 
-      {/* Ground target radar — combat only, top-right */}
       {isCombat && <GroundTargetRadar />}
 
-      {/* Weapon stash — left panel */}
+      {/* Orbital Level HUD — visible in combat mode */}
+      {isCombat && <OrbitalLevelHUD />}
+
       <WeaponStashCards />
-
-      {/* Mech log panel */}
       <MechLogPanel />
-
-      {/* Bottom weapon bar (PULSE CANNON | FIRE | RAIL GUN) — combat only */}
       <BottomWeaponBar />
-
-      {/* Bottom nav strip (icon row) */}
       <BottomNavStrip />
-
-      {/* Story overlays */}
       <DockButton />
       <StoryModeNotification />
     </>

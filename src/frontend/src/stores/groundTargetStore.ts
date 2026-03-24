@@ -1,103 +1,71 @@
 import { create } from "zustand";
+import type { OrbitalLevelConfig } from "./orbitalLevelStore";
+import { ORBITAL_LEVEL_CONFIGS } from "./orbitalLevelStore";
 
 export type GroundTargetStatus = "intact" | "damaged" | "destroyed";
 
 export interface GroundTarget {
   id: string;
   name: string;
-  /** Latitude in radians (-PI/2 to PI/2) */
   lat: number;
-  /** Longitude in radians (-PI to PI) */
   lon: number;
   hp: number;
   maxHp: number;
+  shieldHp: number;
+  shieldMaxHp: number;
+  shieldRegenRate: number; // HP/sec, 0 = no regen
   status: GroundTargetStatus;
   creditReward: number;
+  level: number;
 }
 
-function latLonToRad(latDeg: number, lonDeg: number) {
-  return { lat: (latDeg * Math.PI) / 180, lon: (lonDeg * Math.PI) / 180 };
+/** Golden-angle sphere distribution — evenly spreads N points on a sphere */
+function goldenAnglePositions(count: number): { lat: number; lon: number }[] {
+  const positions: { lat: number; lon: number }[] = [];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i++) {
+    const y = 1 - (i / Math.max(count - 1, 1)) * 2;
+    const theta = goldenAngle * i;
+    const lat = Math.asin(Math.max(-1, Math.min(1, y)));
+    let lon = theta % (2 * Math.PI);
+    if (lon > Math.PI) lon -= 2 * Math.PI;
+    positions.push({ lat, lon });
+  }
+  return positions;
 }
 
-/** 8 targets spread across different continents */
-const INITIAL_TARGETS: GroundTarget[] = [
-  {
-    id: "gt-1",
-    name: "North American Base",
-    ...latLonToRad(40, -100),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-2",
-    name: "European Facility",
-    ...latLonToRad(51, 10),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-3",
-    name: "Siberian Outpost",
-    ...latLonToRad(62, 100),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-4",
-    name: "East Asian Hub",
-    ...latLonToRad(35, 120),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-5",
-    name: "African Depot",
-    ...latLonToRad(-5, 25),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-6",
-    name: "South American Bunker",
-    ...latLonToRad(-20, -60),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-7",
-    name: "Australian Station",
-    ...latLonToRad(-28, 134),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-  {
-    id: "gt-8",
-    name: "Pacific Platform",
-    ...latLonToRad(10, -170),
-    hp: 100,
-    maxHp: 100,
-    status: "intact",
-    creditReward: 50,
-  },
-];
+export function generateTargetsForLevel(
+  config: OrbitalLevelConfig,
+): GroundTarget[] {
+  const positions = goldenAnglePositions(config.targetCount);
+  const targets: GroundTarget[] = positions.map((pos, i) => {
+    const isShielded = i < config.shieldedCount;
+    const shieldHp = isShielded
+      ? config.shieldHp
+      : config.level === 5
+        ? 200
+        : 0;
+    const shieldMaxHp = shieldHp;
+    return {
+      id: `gt-${config.level}-${i}`,
+      name: `${config.enemyTypeName} ${String.fromCharCode(65 + (i % 26))}`,
+      lat: pos.lat,
+      lon: pos.lon,
+      hp: config.baseHp,
+      maxHp: config.baseHp,
+      shieldHp,
+      shieldMaxHp,
+      shieldRegenRate: config.shieldRegen ? config.shieldRegenRate : 0,
+      status: "intact",
+      creditReward: config.creditReward,
+      level: config.level,
+    };
+  });
+  return targets;
+}
 
 export const EARTH_RADIUS = 1.4;
 
-/** Convert lat/lon to 3D position on Earth sphere (matches EarthGlobe rotation=0 at game start) */
 export function groundTargetPosition(
   lat: number,
   lon: number,
@@ -112,7 +80,7 @@ export function groundTargetPosition(
 interface GroundTargetState {
   targets: GroundTarget[];
   lockedGroundTarget: string | null;
-  groundLockDwell: number; // seconds spent aiming at current candidate
+  groundLockDwell: number;
   groundLockCandidate: string | null;
   destroyedCount: number;
 
@@ -123,10 +91,14 @@ interface GroundTargetState {
   resetGroundLock: () => void;
   getAliveTargets: () => GroundTarget[];
   resetTargets: () => void;
+  resetForLevel: (level: number) => void;
+  tickShieldRegen: (delta: number) => void;
 }
 
+const LEVEL1_CONFIG = ORBITAL_LEVEL_CONFIGS[0];
+
 export const useGroundTargetStore = create<GroundTargetState>((set, get) => ({
-  targets: INITIAL_TARGETS,
+  targets: generateTargetsForLevel(LEVEL1_CONFIG),
   lockedGroundTarget: null,
   groundLockDwell: 0,
   groundLockCandidate: null,
@@ -136,14 +108,24 @@ export const useGroundTargetStore = create<GroundTargetState>((set, get) => ({
     set((state) => {
       const targets = state.targets.map((t) => {
         if (t.id !== id) return t;
-        const newHp = Math.max(0, t.hp - amount);
+
+        // Absorb damage with shield first
+        let remaining = amount;
+        let newShieldHp = t.shieldHp;
+        if (newShieldHp > 0) {
+          const absorbed = Math.min(newShieldHp, remaining);
+          newShieldHp = newShieldHp - absorbed;
+          remaining -= absorbed;
+        }
+
+        const newHp = Math.max(0, t.hp - remaining);
         const status: GroundTargetStatus =
           newHp === 0
             ? "destroyed"
             : newHp < t.maxHp * 0.5
               ? "damaged"
               : "intact";
-        return { ...t, hp: newHp, status };
+        return { ...t, hp: newHp, shieldHp: newShieldHp, status };
       });
       const destroyed = targets.find(
         (t) => t.id === id && t.status === "destroyed",
@@ -192,10 +174,42 @@ export const useGroundTargetStore = create<GroundTargetState>((set, get) => ({
 
   getAliveTargets: () => get().targets.filter((t) => t.status !== "destroyed"),
 
-  resetTargets: () =>
+  resetTargets: () => {
+    const config = ORBITAL_LEVEL_CONFIGS[0];
     set({
-      targets: INITIAL_TARGETS.map((t) => ({ ...t })),
+      targets: generateTargetsForLevel(config),
       destroyedCount: 0,
       lockedGroundTarget: null,
-    }),
+    });
+  },
+
+  resetForLevel: (level) => {
+    const config = ORBITAL_LEVEL_CONFIGS.find((c) => c.level === level);
+    if (!config) return;
+    set({
+      targets: generateTargetsForLevel(config),
+      destroyedCount: 0,
+      lockedGroundTarget: null,
+      groundLockCandidate: null,
+      groundLockDwell: 0,
+    });
+  },
+
+  tickShieldRegen: (delta) => {
+    set((state) => ({
+      targets: state.targets.map((t) => {
+        if (
+          t.shieldRegenRate <= 0 ||
+          t.shieldHp >= t.shieldMaxHp ||
+          t.status === "destroyed"
+        )
+          return t;
+        const newShield = Math.min(
+          t.shieldMaxHp,
+          t.shieldHp + t.shieldRegenRate * delta,
+        );
+        return { ...t, shieldHp: newShield };
+      }),
+    }));
+  },
 }));
