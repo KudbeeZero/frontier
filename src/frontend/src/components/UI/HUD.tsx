@@ -16,6 +16,7 @@ import { GroundTargetRadar } from "../Combat/GroundTargetRadar";
 import { FPSCounter } from "../ui/FPSCounter";
 import { AimCone } from "./AimCone";
 import { BottomNavStrip } from "./BottomNavStrip";
+import { CircularArcMenu } from "./CircularArcMenu";
 import { BottomWeaponBar } from "./BottomWeaponBar";
 import { CombatLogWatcher } from "./CombatLog";
 import { MechLogPanel } from "./MechLogPanel";
@@ -689,6 +690,7 @@ interface HUDProps {
 
 export default function HUD(_props: HUDProps) {
   useSwipeControls();
+  const showCircularMenu = useMenuStore((s) => s.showCircularMenu);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -738,6 +740,7 @@ export default function HUD(_props: HUDProps) {
       <MechLogPanel />
       <BottomWeaponBar />
       <BottomNavStrip />
+      {showCircularMenu && <CircularArcMenu />}
       <DockButton />
       <StoryModeNotification />
     </>

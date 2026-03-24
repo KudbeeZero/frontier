@@ -674,9 +674,37 @@ export default function MainMenu() {
   const setGameStarted = useGameStore((s) => s.setGameStarted);
   const [showSettings, setShowSettings] = useState(false);
   const [showCinematic, setShowCinematic] = useState(false);
+  const [launchMode, setLaunchMode] = useState<
+    "deploy" | "story" | "tutorial"
+  >("deploy");
 
-  const handleDeploy = () => setShowCinematic(true);
-  const handleCinematicComplete = () => setGameStarted(true);
+  const handleDeploy = () => {
+    setLaunchMode("deploy");
+    setShowCinematic(true);
+  };
+
+  const handleStoryMode = () => {
+    setLaunchMode("story");
+    setShowCinematic(true);
+  };
+
+  const handleTutorial = () => {
+    setLaunchMode("tutorial");
+    setShowCinematic(true);
+  };
+
+  const handleCinematicComplete = () => {
+    if (launchMode === "story") {
+      import("../../stores/storyStore").then(({ useStoryStore }) => {
+        useStoryStore.getState().enterStoryMode();
+      });
+    } else if (launchMode === "tutorial") {
+      import("../../stores/storyStore").then(({ useStoryStore }) => {
+        useStoryStore.getState().enterTutorialMode();
+      });
+    }
+    setGameStarted(true);
+  };
 
   return (
     <>
@@ -838,18 +866,18 @@ export default function MainMenu() {
               pointerEvents: "auto",
             }}
           >
-            {/* DEPLOY */}
+            {/* TUTORIAL */}
             <button
               type="button"
-              onClick={handleDeploy}
-              data-ocid="menu.deploy_button"
+              onClick={handleTutorial}
+              data-ocid="menu.tutorial_button"
               style={{
                 height: 60,
                 padding: "0 24px",
                 borderRadius: 6,
-                border: "2px solid rgba(255,80,40,0.85)",
-                background: "rgba(160,30,10,0.5)",
-                color: "#ff6644",
+                border: "2px solid rgba(0,255,160,0.75)",
+                background: "rgba(0,60,30,0.5)",
+                color: "#00ffa0",
                 fontFamily: "monospace",
                 fontSize: 14,
                 fontWeight: "bold",
@@ -857,8 +885,35 @@ export default function MainMenu() {
                 textTransform: "uppercase",
                 cursor: "pointer",
                 boxShadow:
-                  "0 0 20px rgba(255,80,40,0.35), inset 0 0 10px rgba(255,60,20,0.08)",
-                textShadow: "0 0 10px rgba(255,100,60,0.8)",
+                  "0 0 20px rgba(0,255,160,0.3), inset 0 0 10px rgba(0,255,120,0.06)",
+                textShadow: "0 0 10px rgba(0,255,160,0.8)",
+                transition: "all 150ms ease",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              ► TUTORIAL
+            </button>
+
+            {/* DEPLOY */}
+            <button
+              type="button"
+              onClick={handleDeploy}
+              data-ocid="menu.deploy_button"
+              style={{
+                height: 50,
+                padding: "0 24px",
+                borderRadius: 6,
+                border: "1.5px solid rgba(255,80,40,0.7)",
+                background: "rgba(80,15,5,0.4)",
+                color: "rgba(255,100,60,0.9)",
+                fontFamily: "monospace",
+                fontSize: 12,
+                fontWeight: "bold",
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                boxShadow: "0 0 14px rgba(255,80,40,0.2)",
+                textShadow: "0 0 8px rgba(255,100,60,0.6)",
                 transition: "all 150ms ease",
                 backdropFilter: "blur(8px)",
               }}
@@ -869,9 +924,7 @@ export default function MainMenu() {
             {/* STORY MODE */}
             <button
               type="button"
-              onClick={() => {
-                setShowCinematic(true);
-              }}
+              onClick={handleStoryMode}
               data-ocid="menu.story_button"
               style={{
                 height: 50,

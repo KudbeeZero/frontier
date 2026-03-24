@@ -5,6 +5,7 @@ import { WaypointArrow } from "./components/Navigation/WaypointArrow";
 import { StoryPanel } from "./components/Story/StoryPanel";
 import { VoicePlayer } from "./components/Story/VoicePlayer";
 import MainMenu from "./components/UI/MainMenu";
+import PauseMenu from "./components/UI/PauseMenu";
 import { PanelRouter } from "./components/UI/PanelRouter";
 import { useDeviceStore } from "./stores/deviceStore";
 import { useGameStore } from "./stores/gameStore";
@@ -16,7 +17,9 @@ import { SAVE_KEY } from "./utils/constants";
 export default function App() {
   const { detectDevice } = useDeviceStore();
   const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  const isTutorialMode = useStoryStore((s) => s.isTutorialMode);
   const gameStarted = useGameStore((s) => s.gameStarted);
+  const showPauseMenu = useGameStore((s) => s.showPauseMenu);
 
   useEffect(() => {
     detectDevice();
@@ -38,6 +41,15 @@ export default function App() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-trigger tutorial_welcome when tutorial mode starts
+  useEffect(() => {
+    if (!isTutorialMode || !gameStarted) return;
+    const { triggerEvent, completedEvents } = useStoryStore.getState();
+    if (!completedEvents.includes("tutorial_welcome")) {
+      triggerEvent("tutorial_welcome");
+    }
+  }, [isTutorialMode, gameStarted]);
 
   // Auto-trigger "systems_critical" 30 seconds after story mode starts
   useEffect(() => {
@@ -72,6 +84,7 @@ export default function App() {
       <VoicePlayer />
       {/* Waypoint navigation arrow — story mode only */}
       <WaypointArrow />
+      {showPauseMenu && <PauseMenu />}
     </div>
   );
 }
