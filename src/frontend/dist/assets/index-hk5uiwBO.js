@@ -175,13 +175,13 @@ function isValidTimeout(value) {
 function timeUntilStale(updatedAt, staleTime) {
   return Math.max(updatedAt + (staleTime || 0) - Date.now(), 0);
 }
-function resolveStaleTime(staleTime, query) {
-  return typeof staleTime === "function" ? staleTime(query) : staleTime;
+function resolveStaleTime(staleTime, query2) {
+  return typeof staleTime === "function" ? staleTime(query2) : staleTime;
 }
-function resolveEnabled(enabled, query) {
-  return typeof enabled === "function" ? enabled(query) : enabled;
+function resolveEnabled(enabled, query2) {
+  return typeof enabled === "function" ? enabled(query2) : enabled;
 }
-function matchQuery(filters, query) {
+function matchQuery(filters, query2) {
   const {
     type = "all",
     exact,
@@ -192,15 +192,15 @@ function matchQuery(filters, query) {
   } = filters;
   if (queryKey) {
     if (exact) {
-      if (query.queryHash !== hashQueryKeyByOptions(queryKey, query.options)) {
+      if (query2.queryHash !== hashQueryKeyByOptions(queryKey, query2.options)) {
         return false;
       }
-    } else if (!partialMatchKey(query.queryKey, queryKey)) {
+    } else if (!partialMatchKey(query2.queryKey, queryKey)) {
       return false;
     }
   }
   if (type !== "all") {
-    const isActive = query.isActive();
+    const isActive = query2.isActive();
     if (type === "active" && !isActive) {
       return false;
     }
@@ -208,13 +208,13 @@ function matchQuery(filters, query) {
       return false;
     }
   }
-  if (typeof stale === "boolean" && query.isStale() !== stale) {
+  if (typeof stale === "boolean" && query2.isStale() !== stale) {
     return false;
   }
-  if (fetchStatus && fetchStatus !== query.state.fetchStatus) {
+  if (fetchStatus && fetchStatus !== query2.state.fetchStatus) {
     return false;
   }
-  if (predicate && !predicate(query)) {
+  if (predicate && !predicate(query2)) {
     return false;
   }
   return true;
@@ -1137,7 +1137,7 @@ function getDefaultState$1(options) {
 }
 function infiniteQueryBehavior(pages) {
   return {
-    onFetch: (context2, query) => {
+    onFetch: (context2, query2) => {
       var _a2, _b2, _c2, _d2, _e2;
       const options = context2.options;
       const direction = (_c2 = (_b2 = (_a2 = context2.fetchOptions) == null ? void 0 : _a2.meta) == null ? void 0 : _b2.fetchMore) == null ? void 0 : _c2.direction;
@@ -1224,7 +1224,7 @@ function infiniteQueryBehavior(pages) {
               meta: context2.options.meta,
               signal: context2.signal
             },
-            query
+            query2
           );
         };
       } else {
@@ -1642,9 +1642,9 @@ var QueryCache = (_h = class extends Subscribable {
   build(client2, options, state2) {
     const queryKey = options.queryKey;
     const queryHash = options.queryHash ?? hashQueryKeyByOptions(queryKey, options);
-    let query = this.get(queryHash);
-    if (!query) {
-      query = new Query({
+    let query2 = this.get(queryHash);
+    if (!query2) {
+      query2 = new Query({
         client: client2,
         queryKey,
         queryHash,
@@ -1652,33 +1652,33 @@ var QueryCache = (_h = class extends Subscribable {
         state: state2,
         defaultOptions: client2.getQueryDefaults(queryKey)
       });
-      this.add(query);
+      this.add(query2);
     }
-    return query;
+    return query2;
   }
-  add(query) {
-    if (!__privateGet(this, _queries).has(query.queryHash)) {
-      __privateGet(this, _queries).set(query.queryHash, query);
+  add(query2) {
+    if (!__privateGet(this, _queries).has(query2.queryHash)) {
+      __privateGet(this, _queries).set(query2.queryHash, query2);
       this.notify({
         type: "added",
-        query
+        query: query2
       });
     }
   }
-  remove(query) {
-    const queryInMap = __privateGet(this, _queries).get(query.queryHash);
+  remove(query2) {
+    const queryInMap = __privateGet(this, _queries).get(query2.queryHash);
     if (queryInMap) {
-      query.destroy();
-      if (queryInMap === query) {
-        __privateGet(this, _queries).delete(query.queryHash);
+      query2.destroy();
+      if (queryInMap === query2) {
+        __privateGet(this, _queries).delete(query2.queryHash);
       }
-      this.notify({ type: "removed", query });
+      this.notify({ type: "removed", query: query2 });
     }
   }
   clear() {
     notifyManager.batch(() => {
-      this.getAll().forEach((query) => {
-        this.remove(query);
+      this.getAll().forEach((query2) => {
+        this.remove(query2);
       });
     });
   }
@@ -1691,12 +1691,12 @@ var QueryCache = (_h = class extends Subscribable {
   find(filters) {
     const defaultedFilters = { exact: true, ...filters };
     return this.getAll().find(
-      (query) => matchQuery(defaultedFilters, query)
+      (query2) => matchQuery(defaultedFilters, query2)
     );
   }
   findAll(filters = {}) {
     const queries = this.getAll();
-    return Object.keys(filters).length > 0 ? queries.filter((query) => matchQuery(filters, query)) : queries;
+    return Object.keys(filters).length > 0 ? queries.filter((query2) => matchQuery(filters, query2)) : queries;
   }
   notify(event) {
     notifyManager.batch(() => {
@@ -1707,15 +1707,15 @@ var QueryCache = (_h = class extends Subscribable {
   }
   onFocus() {
     notifyManager.batch(() => {
-      this.getAll().forEach((query) => {
-        query.onFocus();
+      this.getAll().forEach((query2) => {
+        query2.onFocus();
       });
     });
   }
   onOnline() {
     notifyManager.batch(() => {
-      this.getAll().forEach((query) => {
-        query.onOnline();
+      this.getAll().forEach((query2) => {
+        query2.onOnline();
       });
     });
   }
@@ -1782,12 +1782,12 @@ var QueryClient = (_i = class {
   }
   ensureQueryData(options) {
     const defaultedOptions = this.defaultQueryOptions(options);
-    const query = __privateGet(this, _queryCache).build(this, defaultedOptions);
-    const cachedData = query.state.data;
+    const query2 = __privateGet(this, _queryCache).build(this, defaultedOptions);
+    const cachedData = query2.state.data;
     if (cachedData === void 0) {
       return this.fetchQuery(options);
     }
-    if (options.revalidateIfStale && query.isStaleByTime(resolveStaleTime(defaultedOptions.staleTime, query))) {
+    if (options.revalidateIfStale && query2.isStaleByTime(resolveStaleTime(defaultedOptions.staleTime, query2))) {
       void this.prefetchQuery(defaultedOptions);
     }
     return Promise.resolve(cachedData);
@@ -1800,10 +1800,10 @@ var QueryClient = (_i = class {
   }
   setQueryData(queryKey, updater, options) {
     const defaultedOptions = this.defaultQueryOptions({ queryKey });
-    const query = __privateGet(this, _queryCache).get(
+    const query2 = __privateGet(this, _queryCache).get(
       defaultedOptions.queryHash
     );
-    const prevData = query == null ? void 0 : query.state.data;
+    const prevData = query2 == null ? void 0 : query2.state.data;
     const data = functionalUpdate(updater, prevData);
     if (data === void 0) {
       return void 0;
@@ -1828,16 +1828,16 @@ var QueryClient = (_i = class {
   removeQueries(filters) {
     const queryCache = __privateGet(this, _queryCache);
     notifyManager.batch(() => {
-      queryCache.findAll(filters).forEach((query) => {
-        queryCache.remove(query);
+      queryCache.findAll(filters).forEach((query2) => {
+        queryCache.remove(query2);
       });
     });
   }
   resetQueries(filters, options) {
     const queryCache = __privateGet(this, _queryCache);
     return notifyManager.batch(() => {
-      queryCache.findAll(filters).forEach((query) => {
-        query.reset();
+      queryCache.findAll(filters).forEach((query2) => {
+        query2.reset();
       });
       return this.refetchQueries(
         {
@@ -1851,14 +1851,14 @@ var QueryClient = (_i = class {
   cancelQueries(filters, cancelOptions = {}) {
     const defaultedCancelOptions = { revert: true, ...cancelOptions };
     const promises = notifyManager.batch(
-      () => __privateGet(this, _queryCache).findAll(filters).map((query) => query.cancel(defaultedCancelOptions))
+      () => __privateGet(this, _queryCache).findAll(filters).map((query2) => query2.cancel(defaultedCancelOptions))
     );
     return Promise.all(promises).then(noop$6).catch(noop$6);
   }
   invalidateQueries(filters, options = {}) {
     return notifyManager.batch(() => {
-      __privateGet(this, _queryCache).findAll(filters).forEach((query) => {
-        query.invalidate();
+      __privateGet(this, _queryCache).findAll(filters).forEach((query2) => {
+        query2.invalidate();
       });
       if ((filters == null ? void 0 : filters.refetchType) === "none") {
         return Promise.resolve();
@@ -1878,12 +1878,12 @@ var QueryClient = (_i = class {
       cancelRefetch: options.cancelRefetch ?? true
     };
     const promises = notifyManager.batch(
-      () => __privateGet(this, _queryCache).findAll(filters).filter((query) => !query.isDisabled() && !query.isStatic()).map((query) => {
-        let promise = query.fetch(void 0, fetchOptions);
+      () => __privateGet(this, _queryCache).findAll(filters).filter((query2) => !query2.isDisabled() && !query2.isStatic()).map((query2) => {
+        let promise = query2.fetch(void 0, fetchOptions);
         if (!fetchOptions.throwOnError) {
           promise = promise.catch(noop$6);
         }
-        return query.state.fetchStatus === "paused" ? Promise.resolve() : promise;
+        return query2.state.fetchStatus === "paused" ? Promise.resolve() : promise;
       })
     );
     return Promise.all(promises).then(noop$6);
@@ -1893,10 +1893,10 @@ var QueryClient = (_i = class {
     if (defaultedOptions.retry === void 0) {
       defaultedOptions.retry = false;
     }
-    const query = __privateGet(this, _queryCache).build(this, defaultedOptions);
-    return query.isStaleByTime(
-      resolveStaleTime(defaultedOptions.staleTime, query)
-    ) ? query.fetch(defaultedOptions) : Promise.resolve(query.state.data);
+    const query2 = __privateGet(this, _queryCache).build(this, defaultedOptions);
+    return query2.isStaleByTime(
+      resolveStaleTime(defaultedOptions.staleTime, query2)
+    ) ? query2.fetch(defaultedOptions) : Promise.resolve(query2.state.data);
   }
   prefetchQuery(options) {
     return this.fetchQuery(options).then(noop$6).catch(noop$6);
@@ -3133,7 +3133,7 @@ function popHostContext(fiber) {
   contextFiberStackCursor.current === fiber && (pop(contextStackCursor), pop(contextFiberStackCursor));
   hostTransitionProviderCursor.current === fiber && (pop(hostTransitionProviderCursor), HostTransitionContext._currentValue = sharedNotPendingObject);
 }
-var hasOwnProperty = Object.prototype.hasOwnProperty, scheduleCallback$3 = Scheduler.unstable_scheduleCallback, cancelCallback$1 = Scheduler.unstable_cancelCallback, shouldYield = Scheduler.unstable_shouldYield, requestPaint = Scheduler.unstable_requestPaint, now$1 = Scheduler.unstable_now, getCurrentPriorityLevel = Scheduler.unstable_getCurrentPriorityLevel, ImmediatePriority = Scheduler.unstable_ImmediatePriority, UserBlockingPriority = Scheduler.unstable_UserBlockingPriority, NormalPriority$1 = Scheduler.unstable_NormalPriority, LowPriority = Scheduler.unstable_LowPriority, IdlePriority = Scheduler.unstable_IdlePriority, log$1 = Scheduler.log, unstable_setDisableYieldValue = Scheduler.unstable_setDisableYieldValue, rendererID = null, injectedHook = null;
+var hasOwnProperty = Object.prototype.hasOwnProperty, scheduleCallback$3 = Scheduler.unstable_scheduleCallback, cancelCallback$1 = Scheduler.unstable_cancelCallback, shouldYield = Scheduler.unstable_shouldYield, requestPaint = Scheduler.unstable_requestPaint, now$2 = Scheduler.unstable_now, getCurrentPriorityLevel = Scheduler.unstable_getCurrentPriorityLevel, ImmediatePriority = Scheduler.unstable_ImmediatePriority, UserBlockingPriority = Scheduler.unstable_UserBlockingPriority, NormalPriority$1 = Scheduler.unstable_NormalPriority, LowPriority = Scheduler.unstable_LowPriority, IdlePriority = Scheduler.unstable_IdlePriority, log$1 = Scheduler.log, unstable_setDisableYieldValue = Scheduler.unstable_setDisableYieldValue, rendererID = null, injectedHook = null;
 function setIsStrictModeForDevtools(newIsStrictMode) {
   "function" === typeof log$1 && unstable_setDisableYieldValue(newIsStrictMode);
   if (injectedHook && "function" === typeof injectedHook.setStrictMode)
@@ -8624,7 +8624,7 @@ function completeWork(current, workInProgress2, renderLanes2) {
               }
               current = current.sibling;
             }
-          null !== type.tail && now$1() > workInProgressRootRenderTargetTime && (workInProgress2.flags |= 128, newProps = true, cutOffTailIfNeeded(type, false), workInProgress2.lanes = 4194304);
+          null !== type.tail && now$2() > workInProgressRootRenderTargetTime && (workInProgress2.flags |= 128, newProps = true, cutOffTailIfNeeded(type, false), workInProgress2.lanes = 4194304);
         }
       else {
         if (!newProps)
@@ -8632,11 +8632,11 @@ function completeWork(current, workInProgress2, renderLanes2) {
             if (workInProgress2.flags |= 128, newProps = true, current = current.updateQueue, workInProgress2.updateQueue = current, scheduleRetryEffect(workInProgress2, current), cutOffTailIfNeeded(type, true), null === type.tail && "hidden" === type.tailMode && !cache$127.alternate && !isHydrating)
               return bubbleProperties(workInProgress2), null;
           } else
-            2 * now$1() - type.renderingStartTime > workInProgressRootRenderTargetTime && 536870912 !== renderLanes2 && (workInProgress2.flags |= 128, newProps = true, cutOffTailIfNeeded(type, false), workInProgress2.lanes = 4194304);
+            2 * now$2() - type.renderingStartTime > workInProgressRootRenderTargetTime && 536870912 !== renderLanes2 && (workInProgress2.flags |= 128, newProps = true, cutOffTailIfNeeded(type, false), workInProgress2.lanes = 4194304);
         type.isBackwards ? (cache$127.sibling = workInProgress2.child, workInProgress2.child = cache$127) : (current = type.last, null !== current ? current.sibling = cache$127 : workInProgress2.child = cache$127, type.last = cache$127);
       }
       if (null !== type.tail)
-        return workInProgress2 = type.tail, type.rendering = workInProgress2, type.tail = workInProgress2.sibling, type.renderingStartTime = now$1(), workInProgress2.sibling = null, current = suspenseStackCursor.current, push(suspenseStackCursor, newProps ? current & 1 | 2 : current & 1), workInProgress2;
+        return workInProgress2 = type.tail, type.rendering = workInProgress2, type.tail = workInProgress2.sibling, type.renderingStartTime = now$2(), workInProgress2.sibling = null, current = suspenseStackCursor.current, push(suspenseStackCursor, newProps ? current & 1 | 2 : current & 1), workInProgress2;
       bubbleProperties(workInProgress2);
       return null;
     case 22:
@@ -9549,7 +9549,7 @@ function commitMutationEffectsOnFiber(finishedWork, root2) {
     case 13:
       recursivelyTraverseMutationEffects(root2, finishedWork);
       commitReconciliationEffects(finishedWork);
-      finishedWork.child.flags & 8192 && null !== finishedWork.memoizedState !== (null !== current && null !== current.memoizedState) && (globalMostRecentFallbackTime = now$1());
+      finishedWork.child.flags & 8192 && null !== finishedWork.memoizedState !== (null !== current && null !== current.memoizedState) && (globalMostRecentFallbackTime = now$2());
       flags & 4 && (flags = finishedWork.updateQueue, null !== flags && (finishedWork.updateQueue = null, attachSuspenseRetryListeners(finishedWork, flags)));
       break;
     case 22:
@@ -10299,7 +10299,7 @@ function performWorkOnRoot(root$jscomp$0, lanes, forceSync) {
           default:
             throw Error(formatProdErrorMessage(329));
         }
-        if ((lanes & 62914560) === lanes && (exitStatus = globalMostRecentFallbackTime + 300 - now$1(), 10 < exitStatus)) {
+        if ((lanes & 62914560) === lanes && (exitStatus = globalMostRecentFallbackTime + 300 - now$2(), 10 < exitStatus)) {
           markRootSuspended(
             shouldTimeSlice,
             lanes,
@@ -10562,7 +10562,7 @@ function renderRootConcurrent(root2, lanes) {
   var prevExecutionContext = executionContext;
   executionContext |= 2;
   var prevDispatcher = pushDispatcher(), prevAsyncDispatcher = pushAsyncDispatcher();
-  workInProgressRoot !== root2 || workInProgressRootRenderLanes !== lanes ? (workInProgressTransitions = null, workInProgressRootRenderTargetTime = now$1() + 500, prepareFreshStack(root2, lanes)) : workInProgressRootIsPrerendering = checkIfRootIsPrerendering(
+  workInProgressRoot !== root2 || workInProgressRootRenderLanes !== lanes ? (workInProgressTransitions = null, workInProgressRootRenderTargetTime = now$2() + 500, prepareFreshStack(root2, lanes)) : workInProgressRootIsPrerendering = checkIfRootIsPrerendering(
     root2,
     lanes
   );
@@ -11063,7 +11063,7 @@ function pingSuspendedRoot(root2, wakeable, pingedLanes) {
   null !== pingCache && pingCache.delete(wakeable);
   root2.pingedLanes |= root2.suspendedLanes & pingedLanes;
   root2.warmLanes &= ~pingedLanes;
-  workInProgressRoot === root2 && (workInProgressRootRenderLanes & pingedLanes) === pingedLanes && (4 === workInProgressRootExitStatus || 3 === workInProgressRootExitStatus && (workInProgressRootRenderLanes & 62914560) === workInProgressRootRenderLanes && 300 > now$1() - globalMostRecentFallbackTime ? 0 === (executionContext & 2) && prepareFreshStack(root2, 0) : workInProgressRootPingedLanes |= pingedLanes, workInProgressSuspendedRetryLanes === workInProgressRootRenderLanes && (workInProgressSuspendedRetryLanes = 0));
+  workInProgressRoot === root2 && (workInProgressRootRenderLanes & pingedLanes) === pingedLanes && (4 === workInProgressRootExitStatus || 3 === workInProgressRootExitStatus && (workInProgressRootRenderLanes & 62914560) === workInProgressRootRenderLanes && 300 > now$2() - globalMostRecentFallbackTime ? 0 === (executionContext & 2) && prepareFreshStack(root2, 0) : workInProgressRootPingedLanes |= pingedLanes, workInProgressSuspendedRetryLanes === workInProgressRootRenderLanes && (workInProgressSuspendedRetryLanes = 0));
   ensureRootIsScheduled(root2);
 }
 function retryTimedOutBoundary(boundaryFiber, retryLane) {
@@ -11140,7 +11140,7 @@ function processRootScheduleInMicrotask() {
   mightHavePendingSyncWork = didScheduleMicrotask = false;
   var syncTransitionLanes = 0;
   0 !== currentEventTransitionLane && (shouldAttemptEagerTransition() && (syncTransitionLanes = currentEventTransitionLane), currentEventTransitionLane = 0);
-  for (var currentTime = now$1(), prev = null, root2 = firstScheduledRoot; null !== root2; ) {
+  for (var currentTime = now$2(), prev = null, root2 = firstScheduledRoot; null !== root2; ) {
     var next = root2.next, nextLanes = scheduleTaskForRootDuringMicrotask(root2, currentTime);
     if (0 === nextLanes)
       root2.next = null, null === prev ? firstScheduledRoot = next : prev.next = next, null === next && (lastScheduledRoot = prev);
@@ -11212,7 +11212,7 @@ function performWorkOnRootViaSchedulerTask(root2, didTimeout) {
   );
   if (0 === workInProgressRootRenderLanes$jscomp$0) return null;
   performWorkOnRoot(root2, workInProgressRootRenderLanes$jscomp$0, didTimeout);
-  scheduleTaskForRootDuringMicrotask(root2, now$1());
+  scheduleTaskForRootDuringMicrotask(root2, now$2());
   return null != root2.callbackNode && root2.callbackNode === originalCallbackNode ? performWorkOnRootViaSchedulerTask.bind(null, root2) : null;
 }
 function performSyncWorkOnRoot(root2, lanes) {
@@ -12810,7 +12810,7 @@ ReactDOMSharedInternals.d = {
   r: requestFormReset,
   D: prefetchDNS,
   C: preconnect,
-  L: preload,
+  L: preload$1,
   m: preloadModule,
   X: preinitScript,
   S: preinitStyle,
@@ -12842,7 +12842,7 @@ function preconnect(href, crossOrigin) {
   previousDispatcher.C(href, crossOrigin);
   preconnectAs("preconnect", href, crossOrigin);
 }
-function preload(href, as, options) {
+function preload$1(href, as, options) {
   previousDispatcher.L(href, as, options);
   var ownerDocument = globalDocument;
   if (ownerDocument && href && as) {
@@ -13455,7 +13455,7 @@ function dispatchEvent(domEventName, eventSystemFlags, targetContainer, nativeEv
                     lanes &= ~lane;
                   }
                   ensureRootIsScheduled(fiber);
-                  0 === (executionContext & 6) && (workInProgressRootRenderTargetTime = now$1() + 500, flushSyncWorkAcrossRoots_impl(0));
+                  0 === (executionContext & 6) && (workInProgressRootRenderTargetTime = now$2() + 500, flushSyncWorkAcrossRoots_impl(0));
                 }
               }
               break;
@@ -15176,9 +15176,9 @@ class Vector2 {
    * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
    * @return {Vector2} A reference to this vector.
    */
-  lerpVectors(v1, v2, alpha) {
-    this.x = v1.x + (v2.x - v1.x) * alpha;
-    this.y = v1.y + (v2.y - v1.y) * alpha;
+  lerpVectors(v12, v22, alpha) {
+    this.x = v12.x + (v22.x - v12.x) * alpha;
+    this.y = v12.y + (v22.y - v12.y) * alpha;
     return this;
   }
   /**
@@ -16705,9 +16705,9 @@ class Vector4 {
    */
   setAxisAngleFromRotationMatrix(m2) {
     let angle, x2, y, z;
-    const epsilon = 0.01, epsilon2 = 0.1, te = m2.elements, m11 = te[0], m12 = te[4], m13 = te[8], m21 = te[1], m22 = te[5], m23 = te[9], m31 = te[2], m32 = te[6], m33 = te[10];
-    if (Math.abs(m12 - m21) < epsilon && Math.abs(m13 - m31) < epsilon && Math.abs(m23 - m32) < epsilon) {
-      if (Math.abs(m12 + m21) < epsilon2 && Math.abs(m13 + m31) < epsilon2 && Math.abs(m23 + m32) < epsilon2 && Math.abs(m11 + m22 + m33 - 3) < epsilon2) {
+    const epsilon2 = 0.01, epsilon22 = 0.1, te = m2.elements, m11 = te[0], m12 = te[4], m13 = te[8], m21 = te[1], m22 = te[5], m23 = te[9], m31 = te[2], m32 = te[6], m33 = te[10];
+    if (Math.abs(m12 - m21) < epsilon2 && Math.abs(m13 - m31) < epsilon2 && Math.abs(m23 - m32) < epsilon2) {
+      if (Math.abs(m12 + m21) < epsilon22 && Math.abs(m13 + m31) < epsilon22 && Math.abs(m23 + m32) < epsilon22 && Math.abs(m11 + m22 + m33 - 3) < epsilon22) {
         this.set(1, 0, 0, 0);
         return this;
       }
@@ -16719,7 +16719,7 @@ class Vector4 {
       const xz = (m13 + m31) / 4;
       const yz = (m23 + m32) / 4;
       if (xx > yy && xx > zz) {
-        if (xx < epsilon) {
+        if (xx < epsilon2) {
           x2 = 0;
           y = 0.707106781;
           z = 0.707106781;
@@ -16729,7 +16729,7 @@ class Vector4 {
           z = xz / x2;
         }
       } else if (yy > zz) {
-        if (yy < epsilon) {
+        if (yy < epsilon2) {
           x2 = 0.707106781;
           y = 0;
           z = 0.707106781;
@@ -16739,7 +16739,7 @@ class Vector4 {
           z = yz / y;
         }
       } else {
-        if (zz < epsilon) {
+        if (zz < epsilon2) {
           x2 = 0.707106781;
           y = 0.707106781;
           z = 0;
@@ -16992,11 +16992,11 @@ class Vector4 {
    * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
    * @return {Vector4} A reference to this vector.
    */
-  lerpVectors(v1, v2, alpha) {
-    this.x = v1.x + (v2.x - v1.x) * alpha;
-    this.y = v1.y + (v2.y - v1.y) * alpha;
-    this.z = v1.z + (v2.z - v1.z) * alpha;
-    this.w = v1.w + (v2.w - v1.w) * alpha;
+  lerpVectors(v12, v22, alpha) {
+    this.x = v12.x + (v22.x - v12.x) * alpha;
+    this.y = v12.y + (v22.y - v12.y) * alpha;
+    this.z = v12.z + (v22.z - v12.z) * alpha;
+    this.w = v12.w + (v22.w - v12.w) * alpha;
     return this;
   }
   /**
@@ -18580,10 +18580,10 @@ class Vector3 {
    * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
    * @return {Vector3} A reference to this vector.
    */
-  lerpVectors(v1, v2, alpha) {
-    this.x = v1.x + (v2.x - v1.x) * alpha;
-    this.y = v1.y + (v2.y - v1.y) * alpha;
-    this.z = v1.z + (v2.z - v1.z) * alpha;
+  lerpVectors(v12, v22, alpha) {
+    this.x = v12.x + (v22.x - v12.x) * alpha;
+    this.y = v12.y + (v22.y - v12.y) * alpha;
+    this.z = v12.z + (v22.z - v12.z) * alpha;
     return this;
   }
   /**
@@ -19396,13 +19396,13 @@ const _center = /* @__PURE__ */ new Vector3();
 const _extents = /* @__PURE__ */ new Vector3();
 const _triangleNormal = /* @__PURE__ */ new Vector3();
 const _testAxis = /* @__PURE__ */ new Vector3();
-function satForAxes(axes, v0, v1, v2, extents) {
+function satForAxes(axes, v0, v12, v22, extents) {
   for (let i2 = 0, j2 = axes.length - 3; i2 <= j2; i2 += 3) {
     _testAxis.fromArray(axes, i2);
     const r = extents.x * Math.abs(_testAxis.x) + extents.y * Math.abs(_testAxis.y) + extents.z * Math.abs(_testAxis.z);
     const p0 = v0.dot(_testAxis);
-    const p1 = v1.dot(_testAxis);
-    const p2 = v2.dot(_testAxis);
+    const p1 = v12.dot(_testAxis);
+    const p2 = v22.dot(_testAxis);
     if (Math.max(-Math.max(p0, p1, p2), Math.min(p0, p1, p2)) > r) {
       return false;
     }
@@ -19776,11 +19776,11 @@ class Ray {
    * @param {Vector3} [optionalPointOnSegment] - When provided, it receives the point on the line segment that is closest to this ray.
    * @return {number} The squared distance.
    */
-  distanceSqToSegment(v0, v1, optionalPointOnRay, optionalPointOnSegment) {
-    _segCenter.copy(v0).add(v1).multiplyScalar(0.5);
-    _segDir.copy(v1).sub(v0).normalize();
+  distanceSqToSegment(v0, v12, optionalPointOnRay, optionalPointOnSegment) {
+    _segCenter.copy(v0).add(v12).multiplyScalar(0.5);
+    _segDir.copy(v12).sub(v0).normalize();
     _diff.copy(this.origin).sub(_segCenter);
-    const segExtent = v0.distanceTo(v1) * 0.5;
+    const segExtent = v0.distanceTo(v12) * 0.5;
     const a01 = -this.direction.dot(_segDir);
     const b0 = _diff.dot(this.direction);
     const b1 = -_diff.dot(_segDir);
@@ -22525,7 +22525,7 @@ class Triangle {
    * @param {Vector3} target - The target vector that is used to store the method's result.
    * @return {?Vector3} The interpolated value.
    */
-  static getInterpolation(point, p1, p2, p3, v1, v2, v3, target) {
+  static getInterpolation(point, p1, p2, p3, v12, v22, v32, target) {
     if (this.getBarycoord(point, p1, p2, p3, _v3$2) === null) {
       target.x = 0;
       target.y = 0;
@@ -22534,9 +22534,9 @@ class Triangle {
       return null;
     }
     target.setScalar(0);
-    target.addScaledVector(v1, _v3$2.x);
-    target.addScaledVector(v2, _v3$2.y);
-    target.addScaledVector(v3, _v3$2.z);
+    target.addScaledVector(v12, _v3$2.x);
+    target.addScaledVector(v22, _v3$2.y);
+    target.addScaledVector(v32, _v3$2.z);
     return target;
   }
   /**
@@ -22700,8 +22700,8 @@ class Triangle {
    * @param {Vector3} target - The target vector that is used to store the method's result.
    * @return {?Vector3} The interpolated value.
    */
-  getInterpolation(point, v1, v2, v3, target) {
-    return Triangle.getInterpolation(point, this.a, this.b, this.c, v1, v2, v3, target);
+  getInterpolation(point, v12, v22, v32, target) {
+    return Triangle.getInterpolation(point, this.a, this.b, this.c, v12, v22, v32, target);
   }
   /**
    * Returns `true` if the given point, when projected onto the plane of the
@@ -28988,7 +28988,7 @@ const _matrix$1 = /* @__PURE__ */ new Matrix4();
 const _whiteColor = /* @__PURE__ */ new Color(1, 1, 1);
 const _frustum = /* @__PURE__ */ new Frustum();
 const _frustumArray = /* @__PURE__ */ new FrustumArray();
-const _box$1 = /* @__PURE__ */ new Box3();
+const _box$1$1 = /* @__PURE__ */ new Box3();
 const _sphere$2 = /* @__PURE__ */ new Sphere();
 const _vector$5 = /* @__PURE__ */ new Vector3();
 const _forward = /* @__PURE__ */ new Vector3();
@@ -29204,8 +29204,8 @@ class BatchedMesh extends Mesh {
       if (instanceInfo[i2].active === false) continue;
       const geometryId = instanceInfo[i2].geometryIndex;
       this.getMatrixAt(i2, _matrix$1);
-      this.getBoundingBoxAt(geometryId, _box$1).applyMatrix4(_matrix$1);
-      boundingBox.union(_box$1);
+      this.getBoundingBoxAt(geometryId, _box$1$1).applyMatrix4(_matrix$1);
+      boundingBox.union(_box$1$1);
     }
   }
   /**
@@ -29525,8 +29525,8 @@ class BatchedMesh extends Mesh {
     const geometryInfo = this._geometryInfo[geometryId];
     if (geometryInfo.boundingSphere === null) {
       const sphere = new Sphere();
-      this.getBoundingBoxAt(geometryId, _box$1);
-      _box$1.getCenter(sphere.center);
+      this.getBoundingBoxAt(geometryId, _box$1$1);
+      _box$1$1.getCenter(sphere.center);
       const index2 = geometry.index;
       const position = geometry.attributes.position;
       let maxRadiusSq = 0;
@@ -29961,7 +29961,7 @@ const _ray$1 = /* @__PURE__ */ new Ray();
 const _sphere$1 = /* @__PURE__ */ new Sphere();
 const _intersectPointOnRay = /* @__PURE__ */ new Vector3();
 const _intersectPointOnSegment = /* @__PURE__ */ new Vector3();
-class Line extends Object3D {
+let Line$1 = class Line extends Object3D {
   /**
    * Constructs a new line.
    *
@@ -30089,7 +30089,7 @@ class Line extends Object3D {
       }
     }
   }
-}
+};
 function checkIntersection(object, raycaster, ray, thresholdSq, a2, b2, i2) {
   const positionAttribute = object.geometry.attributes.position;
   _vStart.fromBufferAttribute(positionAttribute, a2);
@@ -30111,9 +30111,9 @@ function checkIntersection(object, raycaster, ray, thresholdSq, a2, b2, i2) {
     object
   };
 }
-const _start = /* @__PURE__ */ new Vector3();
-const _end = /* @__PURE__ */ new Vector3();
-class LineSegments extends Line {
+const _start$1 = /* @__PURE__ */ new Vector3();
+const _end$1 = /* @__PURE__ */ new Vector3();
+class LineSegments extends Line$1 {
   /**
    * Constructs a new line segments.
    *
@@ -30131,10 +30131,10 @@ class LineSegments extends Line {
       const positionAttribute = geometry.attributes.position;
       const lineDistances = [];
       for (let i2 = 0, l2 = positionAttribute.count; i2 < l2; i2 += 2) {
-        _start.fromBufferAttribute(positionAttribute, i2);
-        _end.fromBufferAttribute(positionAttribute, i2 + 1);
+        _start$1.fromBufferAttribute(positionAttribute, i2);
+        _end$1.fromBufferAttribute(positionAttribute, i2 + 1);
         lineDistances[i2] = i2 === 0 ? 0 : lineDistances[i2 - 1];
-        lineDistances[i2 + 1] = lineDistances[i2] + _start.distanceTo(_end);
+        lineDistances[i2 + 1] = lineDistances[i2] + _start$1.distanceTo(_end$1);
       }
       geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
     } else {
@@ -30143,7 +30143,7 @@ class LineSegments extends Line {
     return this;
   }
 }
-class LineLoop extends Line {
+class LineLoop extends Line$1 {
   /**
    * Constructs a new line loop.
    *
@@ -30190,8 +30190,8 @@ class PointsMaterial extends Material {
   }
 }
 const _inverseMatrix = /* @__PURE__ */ new Matrix4();
-const _ray = /* @__PURE__ */ new Ray();
-const _sphere = /* @__PURE__ */ new Sphere();
+const _ray$4 = /* @__PURE__ */ new Ray();
+const _sphere$7 = /* @__PURE__ */ new Sphere();
 const _position$2 = /* @__PURE__ */ new Vector3();
 class Points extends Object3D {
   /**
@@ -30228,12 +30228,12 @@ class Points extends Object3D {
     const threshold = raycaster.params.Points.threshold;
     const drawRange = geometry.drawRange;
     if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
-    _sphere.copy(geometry.boundingSphere);
-    _sphere.applyMatrix4(matrixWorld);
-    _sphere.radius += threshold;
-    if (raycaster.ray.intersectsSphere(_sphere) === false) return;
+    _sphere$7.copy(geometry.boundingSphere);
+    _sphere$7.applyMatrix4(matrixWorld);
+    _sphere$7.radius += threshold;
+    if (raycaster.ray.intersectsSphere(_sphere$7) === false) return;
     _inverseMatrix.copy(matrixWorld).invert();
-    _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
+    _ray$4.copy(raycaster.ray).applyMatrix4(_inverseMatrix);
     const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
     const localThresholdSq = localThreshold * localThreshold;
     const index2 = geometry.index;
@@ -30279,10 +30279,10 @@ class Points extends Object3D {
   }
 }
 function testPoint(point, index2, localThresholdSq, matrixWorld, raycaster, intersects2, object) {
-  const rayPointDistanceSq = _ray.distanceSqToPoint(point);
+  const rayPointDistanceSq = _ray$4.distanceSqToPoint(point);
   if (rayPointDistanceSq < localThresholdSq) {
     const intersectPoint = new Vector3();
-    _ray.closestPointToPoint(point, intersectPoint);
+    _ray$4.closestPointToPoint(point, intersectPoint);
     intersectPoint.applyMatrix4(matrixWorld);
     const distance = raycaster.ray.origin.distanceTo(intersectPoint);
     if (distance < raycaster.near || distance > raycaster.far) return;
@@ -31374,13 +31374,13 @@ class EdgesGeometry extends BufferGeometry {
           const vecHash0 = hashes[j2];
           const vecHash1 = hashes[jNext];
           const v0 = _triangle[vertKeys[j2]];
-          const v1 = _triangle[vertKeys[jNext]];
+          const v12 = _triangle[vertKeys[jNext]];
           const hash = `${vecHash0}_${vecHash1}`;
           const reverseHash = `${vecHash1}_${vecHash0}`;
           if (reverseHash in edgeData && edgeData[reverseHash]) {
             if (_normal.dot(edgeData[reverseHash].normal) <= thresholdDot) {
               vertices.push(v0.x, v0.y, v0.z);
-              vertices.push(v1.x, v1.y, v1.z);
+              vertices.push(v12.x, v12.y, v12.z);
             }
             edgeData[reverseHash] = null;
           } else if (!(hash in edgeData)) {
@@ -31975,10 +31975,10 @@ class CatmullRomCurve3 extends Curve {
 }
 function CatmullRom(t, p0, p1, p2, p3) {
   const v0 = (p2 - p0) * 0.5;
-  const v1 = (p3 - p1) * 0.5;
+  const v12 = (p3 - p1) * 0.5;
   const t2 = t * t;
   const t3 = t * t2;
-  return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+  return (2 * p1 - 2 * p2 + v0 + v12) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v12) * t2 + v0 * t + p1;
 }
 function QuadraticBezierP0(t, p2) {
   const k2 = 1 - t;
@@ -32019,14 +32019,14 @@ class CubicBezierCurve extends Curve {
    * @param {Vector2} [v2] - The second control point.
    * @param {Vector2} [v3] - The end point.
    */
-  constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2(), v3 = new Vector2()) {
+  constructor(v0 = new Vector2(), v12 = new Vector2(), v22 = new Vector2(), v32 = new Vector2()) {
     super();
     this.isCubicBezierCurve = true;
     this.type = "CubicBezierCurve";
     this.v0 = v0;
-    this.v1 = v1;
-    this.v2 = v2;
-    this.v3 = v3;
+    this.v1 = v12;
+    this.v2 = v22;
+    this.v3 = v32;
   }
   /**
    * Returns a point on the curve.
@@ -32037,10 +32037,10 @@ class CubicBezierCurve extends Curve {
    */
   getPoint(t, optionalTarget = new Vector2()) {
     const point = optionalTarget;
-    const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+    const v0 = this.v0, v12 = this.v1, v22 = this.v2, v32 = this.v3;
     point.set(
-      CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
-      CubicBezier(t, v0.y, v1.y, v2.y, v3.y)
+      CubicBezier(t, v0.x, v12.x, v22.x, v32.x),
+      CubicBezier(t, v0.y, v12.y, v22.y, v32.y)
     );
     return point;
   }
@@ -32078,14 +32078,14 @@ class CubicBezierCurve3 extends Curve {
    * @param {Vector3} [v2] - The second control point.
    * @param {Vector3} [v3] - The end point.
    */
-  constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()) {
+  constructor(v0 = new Vector3(), v12 = new Vector3(), v22 = new Vector3(), v32 = new Vector3()) {
     super();
     this.isCubicBezierCurve3 = true;
     this.type = "CubicBezierCurve3";
     this.v0 = v0;
-    this.v1 = v1;
-    this.v2 = v2;
-    this.v3 = v3;
+    this.v1 = v12;
+    this.v2 = v22;
+    this.v3 = v32;
   }
   /**
    * Returns a point on the curve.
@@ -32096,11 +32096,11 @@ class CubicBezierCurve3 extends Curve {
    */
   getPoint(t, optionalTarget = new Vector3()) {
     const point = optionalTarget;
-    const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+    const v0 = this.v0, v12 = this.v1, v22 = this.v2, v32 = this.v3;
     point.set(
-      CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
-      CubicBezier(t, v0.y, v1.y, v2.y, v3.y),
-      CubicBezier(t, v0.z, v1.z, v2.z, v3.z)
+      CubicBezier(t, v0.x, v12.x, v22.x, v32.x),
+      CubicBezier(t, v0.y, v12.y, v22.y, v32.y),
+      CubicBezier(t, v0.z, v12.z, v22.z, v32.z)
     );
     return point;
   }
@@ -32136,12 +32136,12 @@ class LineCurve extends Curve {
    * @param {Vector2} [v1] - The start point.
    * @param {Vector2} [v2] - The end point.
    */
-  constructor(v1 = new Vector2(), v2 = new Vector2()) {
+  constructor(v12 = new Vector2(), v22 = new Vector2()) {
     super();
     this.isLineCurve = true;
     this.type = "LineCurve";
-    this.v1 = v1;
-    this.v2 = v2;
+    this.v1 = v12;
+    this.v2 = v22;
   }
   /**
    * Returns a point on the line.
@@ -32196,12 +32196,12 @@ class LineCurve3 extends Curve {
    * @param {Vector3} [v1] - The start point.
    * @param {Vector3} [v2] - The end point.
    */
-  constructor(v1 = new Vector3(), v2 = new Vector3()) {
+  constructor(v12 = new Vector3(), v22 = new Vector3()) {
     super();
     this.isLineCurve3 = true;
     this.type = "LineCurve3";
-    this.v1 = v1;
-    this.v2 = v2;
+    this.v1 = v12;
+    this.v2 = v22;
   }
   /**
    * Returns a point on the line.
@@ -32257,13 +32257,13 @@ class QuadraticBezierCurve extends Curve {
    * @param {Vector2} [v1] - The control point.
    * @param {Vector2} [v2] - The end point.
    */
-  constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2()) {
+  constructor(v0 = new Vector2(), v12 = new Vector2(), v22 = new Vector2()) {
     super();
     this.isQuadraticBezierCurve = true;
     this.type = "QuadraticBezierCurve";
     this.v0 = v0;
-    this.v1 = v1;
-    this.v2 = v2;
+    this.v1 = v12;
+    this.v2 = v22;
   }
   /**
    * Returns a point on the curve.
@@ -32274,10 +32274,10 @@ class QuadraticBezierCurve extends Curve {
    */
   getPoint(t, optionalTarget = new Vector2()) {
     const point = optionalTarget;
-    const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+    const v0 = this.v0, v12 = this.v1, v22 = this.v2;
     point.set(
-      QuadraticBezier(t, v0.x, v1.x, v2.x),
-      QuadraticBezier(t, v0.y, v1.y, v2.y)
+      QuadraticBezier(t, v0.x, v12.x, v22.x),
+      QuadraticBezier(t, v0.y, v12.y, v22.y)
     );
     return point;
   }
@@ -32311,13 +32311,13 @@ class QuadraticBezierCurve3 extends Curve {
    * @param {Vector3} [v1] - The control point.
    * @param {Vector3} [v2] - The end point.
    */
-  constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3()) {
+  constructor(v0 = new Vector3(), v12 = new Vector3(), v22 = new Vector3()) {
     super();
     this.isQuadraticBezierCurve3 = true;
     this.type = "QuadraticBezierCurve3";
     this.v0 = v0;
-    this.v1 = v1;
-    this.v2 = v2;
+    this.v1 = v12;
+    this.v2 = v22;
   }
   /**
    * Returns a point on the curve.
@@ -32328,11 +32328,11 @@ class QuadraticBezierCurve3 extends Curve {
    */
   getPoint(t, optionalTarget = new Vector3()) {
     const point = optionalTarget;
-    const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+    const v0 = this.v0, v12 = this.v1, v22 = this.v2;
     point.set(
-      QuadraticBezier(t, v0.x, v1.x, v2.x),
-      QuadraticBezier(t, v0.y, v1.y, v2.y),
-      QuadraticBezier(t, v0.z, v1.z, v2.z)
+      QuadraticBezier(t, v0.x, v12.x, v22.x),
+      QuadraticBezier(t, v0.y, v12.y, v22.y),
+      QuadraticBezier(t, v0.z, v12.z, v22.z)
     );
     return point;
   }
@@ -39592,7 +39592,7 @@ class ObjectLoader extends Loader {
         object = new LOD();
         break;
       case "Line":
-        object = new Line(getGeometry(data.geometry), getMaterial(data.material));
+        object = new Line$1(getGeometry(data.geometry), getMaterial(data.material));
         break;
       case "LineLoop":
         object = new LineLoop(getGeometry(data.geometry), getMaterial(data.material));
@@ -39965,7 +39965,7 @@ class Clock {
    * called by the class.
    */
   start() {
-    this.startTime = now();
+    this.startTime = now$1();
     this.oldTime = this.startTime;
     this.elapsedTime = 0;
     this.running = true;
@@ -39999,7 +39999,7 @@ class Clock {
       return 0;
     }
     if (this.running) {
-      const newTime = now();
+      const newTime = now$1();
       diff = (newTime - this.oldTime) / 1e3;
       this.oldTime = newTime;
       this.elapsedTime += diff;
@@ -40007,7 +40007,7 @@ class Clock {
     return diff;
   }
 }
-function now() {
+function now$1() {
   return performance.now();
 }
 const _position$1 = /* @__PURE__ */ new Vector3();
@@ -43853,11 +43853,11 @@ class DirectionalLightHelper extends Object3D {
       0
     ], 3));
     const material = new LineBasicMaterial({ fog: false, toneMapped: false });
-    this.lightPlane = new Line(geometry, material);
+    this.lightPlane = new Line$1(geometry, material);
     this.add(this.lightPlane);
     geometry = new BufferGeometry();
     geometry.setAttribute("position", new Float32BufferAttribute([0, 0, 0, 0, 0, 1], 3));
-    this.targetLine = new Line(geometry, material);
+    this.targetLine = new Line$1(geometry, material);
     this.add(this.targetLine);
     this.update();
   }
@@ -43893,7 +43893,7 @@ class DirectionalLightHelper extends Object3D {
     this.targetLine.scale.z = _v3.length();
   }
 }
-const _vector = /* @__PURE__ */ new Vector3();
+const _vector$d = /* @__PURE__ */ new Vector3();
 const _camera = /* @__PURE__ */ new Camera();
 class CameraHelper extends LineSegments {
   /**
@@ -44067,16 +44067,16 @@ class CameraHelper extends LineSegments {
   }
 }
 function setPoint(point, pointMap, geometry, camera, x2, y, z) {
-  _vector.set(x2, y, z).unproject(camera);
+  _vector$d.set(x2, y, z).unproject(camera);
   const points = pointMap[point];
   if (points !== void 0) {
     const position = geometry.getAttribute("position");
     for (let i2 = 0, l2 = points.length; i2 < l2; i2++) {
-      position.setXYZ(points[i2], _vector.x, _vector.y, _vector.z);
+      position.setXYZ(points[i2], _vector$d.x, _vector$d.y, _vector$d.z);
     }
   }
 }
-const _box = /* @__PURE__ */ new Box3();
+const _box$5 = /* @__PURE__ */ new Box3();
 class BoxHelper extends LineSegments {
   /**
    * Constructs a new box helper.
@@ -44102,11 +44102,11 @@ class BoxHelper extends LineSegments {
    */
   update() {
     if (this.object !== void 0) {
-      _box.setFromObject(this.object);
+      _box$5.setFromObject(this.object);
     }
-    if (_box.isEmpty()) return;
-    const min = _box.min;
-    const max = _box.max;
+    if (_box$5.isEmpty()) return;
+    const min = _box$5.min;
+    const max = _box$5.max;
     const position = this.geometry.attributes.position;
     const array = position.array;
     array[0] = max.x;
@@ -44196,7 +44196,7 @@ class Box3Helper extends LineSegments {
     this.material.dispose();
   }
 }
-class PlaneHelper extends Line {
+class PlaneHelper extends Line$1 {
   /**
    * Constructs a new plane helper.
    *
@@ -44261,7 +44261,7 @@ class ArrowHelper extends Object3D {
       _coneGeometry.translate(0, -0.5, 0);
     }
     this.position.copy(origin);
-    this.line = new Line(_lineGeometry, new LineBasicMaterial({ color, toneMapped: false }));
+    this.line = new Line$1(_lineGeometry, new LineBasicMaterial({ color, toneMapped: false }));
     this.line.matrixAutoUpdate = false;
     this.add(this.line);
     this.cone = new Mesh(_coneGeometry, new MeshBasicMaterial({ color, toneMapped: false }));
@@ -49976,7 +49976,7 @@ const vertex = "void main() {\n	gl_Position = vec4( position, 1.0 );\n}";
 const fragment = "uniform sampler2D shadow_pass;\nuniform vec2 resolution;\nuniform float radius;\n#include <packing>\nvoid main() {\n	const float samples = float( VSM_SAMPLES );\n	float mean = 0.0;\n	float squared_mean = 0.0;\n	float uvStride = samples <= 1.0 ? 0.0 : 2.0 / ( samples - 1.0 );\n	float uvStart = samples <= 1.0 ? 0.0 : - 1.0;\n	for ( float i = 0.0; i < samples; i ++ ) {\n		float uvOffset = uvStart + i * uvStride;\n		#ifdef HORIZONTAL_PASS\n			vec2 distribution = unpackRGBATo2Half( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( uvOffset, 0.0 ) * radius ) / resolution ) );\n			mean += distribution.x;\n			squared_mean += distribution.y * distribution.y + distribution.x * distribution.x;\n		#else\n			float depth = unpackRGBAToDepth( texture2D( shadow_pass, ( gl_FragCoord.xy + vec2( 0.0, uvOffset ) * radius ) / resolution ) );\n			mean += depth;\n			squared_mean += depth * depth;\n		#endif\n	}\n	mean = mean / samples;\n	squared_mean = squared_mean / samples;\n	float std_dev = sqrt( squared_mean - mean * mean );\n	gl_FragColor = pack2HalfToRGBA( vec2( mean, std_dev ) );\n}";
 function WebGLShadowMap(renderer, objects, capabilities) {
   let _frustum2 = new Frustum();
-  const _shadowMapSize = new Vector2(), _viewportSize = new Vector2(), _viewport = new Vector4(), _depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking }), _distanceMaterial = new MeshDistanceMaterial(), _materialCache = {}, _maxTextureSize = capabilities.maxTextureSize;
+  const _shadowMapSize = new Vector2(), _viewportSize = new Vector2(), _viewport2 = new Vector4(), _depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking }), _distanceMaterial = new MeshDistanceMaterial(), _materialCache = {}, _maxTextureSize = capabilities.maxTextureSize;
   const shadowSide = { [FrontSide]: BackSide, [BackSide]: FrontSide, [DoubleSide]: DoubleSide };
   const shadowMaterialVertical = new ShaderMaterial({
     defines: {
@@ -50059,13 +50059,13 @@ function WebGLShadowMap(renderer, objects, capabilities) {
       const viewportCount = shadow.getViewportCount();
       for (let vp = 0; vp < viewportCount; vp++) {
         const viewport = shadow.getViewport(vp);
-        _viewport.set(
+        _viewport2.set(
           _viewportSize.x * viewport.x,
           _viewportSize.y * viewport.y,
           _viewportSize.x * viewport.z,
           _viewportSize.y * viewport.w
         );
-        _state.viewport(_viewport);
+        _state.viewport(_viewport2);
         shadow.updateMatrices(light, vp);
         _frustum2 = shadow.getFrustum();
         renderObject(scene, camera, shadow.camera, light, this.type);
@@ -53373,7 +53373,7 @@ class WebGLRenderer {
     let _pixelRatio = 1;
     let _opaqueSort = null;
     let _transparentSort = null;
-    const _viewport = new Vector4(0, 0, _width, _height);
+    const _viewport2 = new Vector4(0, 0, _width, _height);
     const _scissor = new Vector4(0, 0, _width, _height);
     let _scissorTest = false;
     const _frustum2 = new Frustum();
@@ -53523,15 +53523,15 @@ class WebGLRenderer {
       return target.copy(_currentViewport);
     };
     this.getViewport = function(target) {
-      return target.copy(_viewport);
+      return target.copy(_viewport2);
     };
     this.setViewport = function(x2, y, width, height) {
       if (x2.isVector4) {
-        _viewport.set(x2.x, x2.y, x2.z, x2.w);
+        _viewport2.set(x2.x, x2.y, x2.z, x2.w);
       } else {
-        _viewport.set(x2, y, width, height);
+        _viewport2.set(x2, y, width, height);
       }
-      state2.viewport(_currentViewport.copy(_viewport).multiplyScalar(_pixelRatio).round());
+      state2.viewport(_currentViewport.copy(_viewport2).multiplyScalar(_pixelRatio).round());
     };
     this.getScissor = function(target) {
       return target.copy(_scissor);
@@ -54507,7 +54507,7 @@ class WebGLRenderer {
         _currentScissor.copy(renderTarget.scissor);
         _currentScissorTest = renderTarget.scissorTest;
       } else {
-        _currentViewport.copy(_viewport).multiplyScalar(_pixelRatio).floor();
+        _currentViewport.copy(_viewport2).multiplyScalar(_pixelRatio).floor();
         _currentScissor.copy(_scissor).multiplyScalar(_pixelRatio).floor();
         _currentScissorTest = _scissorTest;
       }
@@ -54997,7 +54997,7 @@ const THREE = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   LessStencilFunc,
   Light,
   LightProbe,
-  Line,
+  Line: Line$1,
   Line3,
   LineBasicMaterial,
   LineCurve,
@@ -55244,6 +55244,800 @@ const THREE = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   ZeroStencilOp,
   createCanvasElement
 }, Symbol.toStringTag, { value: "Module" }));
+const createStoreImpl = (createState) => {
+  let state2;
+  const listeners = /* @__PURE__ */ new Set();
+  const setState = (partial, replace) => {
+    const nextState = typeof partial === "function" ? partial(state2) : partial;
+    if (!Object.is(nextState, state2)) {
+      const previousState = state2;
+      state2 = (replace != null ? replace : typeof nextState !== "object" || nextState === null) ? nextState : Object.assign({}, state2, nextState);
+      listeners.forEach((listener) => listener(state2, previousState));
+    }
+  };
+  const getState = () => state2;
+  const getInitialState = () => initialState;
+  const subscribe = (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  const api = { setState, getState, getInitialState, subscribe };
+  const initialState = state2 = createState(setState, getState, api);
+  return api;
+};
+const createStore$1 = (createState) => createState ? createStoreImpl(createState) : createStoreImpl;
+const identity$1 = (arg) => arg;
+function useStore$1(api, selector = identity$1) {
+  const slice = React$4.useSyncExternalStore(
+    api.subscribe,
+    React$4.useCallback(() => selector(api.getState()), [api, selector]),
+    React$4.useCallback(() => selector(api.getInitialState()), [api, selector])
+  );
+  React$4.useDebugValue(slice);
+  return slice;
+}
+const createImpl = (createState) => {
+  const api = createStore$1(createState);
+  const useBoundStore = (selector) => useStore$1(api, selector);
+  Object.assign(useBoundStore, api);
+  return useBoundStore;
+};
+const create = (createState) => createState ? createImpl(createState) : createImpl;
+const useCameraStore = create((set) => ({
+  mode: "orbital",
+  target: new Vector3(0, 0, 0),
+  distance: 2.8,
+  orbitAngle: 0,
+  orbitHeight: 0.18,
+  orbitSpeed: 0.03,
+  aimPitch: 0,
+  aimYaw: 0,
+  freeRoamPos: { x: 0, y: 0.5, z: 4 },
+  freeRoamYaw: 0,
+  freeRoamPitch: 0,
+  setMode: (mode) => set({ mode }),
+  setTarget: (target) => set({ target }),
+  setOrbitAngle: (angle) => set({ orbitAngle: angle }),
+  setAimPitch: (v) => set({ aimPitch: Math.max(-Math.PI / 4, Math.min(Math.PI / 4, v)) }),
+  setAimYaw: (v) => set({ aimYaw: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, v)) }),
+  setFreeRoamPos: (pos) => set({ freeRoamPos: pos }),
+  setFreeRoamYaw: (v) => set({ freeRoamYaw: v }),
+  setFreeRoamPitch: (v) => set({ freeRoamPitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, v)) })
+}));
+const cameraStore = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  useCameraStore
+}, Symbol.toStringTag, { value: "Module" }));
+const useDeviceStore = create((set) => ({
+  device: "desktop",
+  isMobile: false,
+  detectDevice: () => {
+    const w = window.innerWidth;
+    const device = w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
+    set({ device, isMobile: device === "mobile" || device === "tablet" });
+  }
+}));
+function createJSONStorage(getStorage, options) {
+  let storage;
+  try {
+    storage = getStorage();
+  } catch (e) {
+    return;
+  }
+  const persistStorage = {
+    getItem: (name) => {
+      var _a2;
+      const parse = (str2) => {
+        if (str2 === null) {
+          return null;
+        }
+        return JSON.parse(str2, void 0);
+      };
+      const str = (_a2 = storage.getItem(name)) != null ? _a2 : null;
+      if (str instanceof Promise) {
+        return str.then(parse);
+      }
+      return parse(str);
+    },
+    setItem: (name, newValue) => storage.setItem(name, JSON.stringify(newValue, void 0)),
+    removeItem: (name) => storage.removeItem(name)
+  };
+  return persistStorage;
+}
+const toThenable = (fn) => (input) => {
+  try {
+    const result = fn(input);
+    if (result instanceof Promise) {
+      return result;
+    }
+    return {
+      then(onFulfilled) {
+        return toThenable(onFulfilled)(result);
+      },
+      catch(_onRejected) {
+        return this;
+      }
+    };
+  } catch (e) {
+    return {
+      then(_onFulfilled) {
+        return this;
+      },
+      catch(onRejected) {
+        return toThenable(onRejected)(e);
+      }
+    };
+  }
+};
+const persistImpl = (config, baseOptions) => (set, get, api) => {
+  let options = {
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state2) => state2,
+    version: 0,
+    merge: (persistedState, currentState) => ({
+      ...currentState,
+      ...persistedState
+    }),
+    ...baseOptions
+  };
+  let hasHydrated = false;
+  const hydrationListeners = /* @__PURE__ */ new Set();
+  const finishHydrationListeners = /* @__PURE__ */ new Set();
+  let storage = options.storage;
+  if (!storage) {
+    return config(
+      (...args) => {
+        console.warn(
+          `[zustand persist middleware] Unable to update item '${options.name}', the given storage is currently unavailable.`
+        );
+        set(...args);
+      },
+      get,
+      api
+    );
+  }
+  const setItem = () => {
+    const state2 = options.partialize({ ...get() });
+    return storage.setItem(options.name, {
+      state: state2,
+      version: options.version
+    });
+  };
+  const savedSetState = api.setState;
+  api.setState = (state2, replace) => {
+    savedSetState(state2, replace);
+    return setItem();
+  };
+  const configResult = config(
+    (...args) => {
+      set(...args);
+      return setItem();
+    },
+    get,
+    api
+  );
+  api.getInitialState = () => configResult;
+  let stateFromStorage;
+  const hydrate = () => {
+    var _a2, _b2;
+    if (!storage) return;
+    hasHydrated = false;
+    hydrationListeners.forEach((cb) => {
+      var _a22;
+      return cb((_a22 = get()) != null ? _a22 : configResult);
+    });
+    const postRehydrationCallback = ((_b2 = options.onRehydrateStorage) == null ? void 0 : _b2.call(options, (_a2 = get()) != null ? _a2 : configResult)) || void 0;
+    return toThenable(storage.getItem.bind(storage))(options.name).then((deserializedStorageValue) => {
+      if (deserializedStorageValue) {
+        if (typeof deserializedStorageValue.version === "number" && deserializedStorageValue.version !== options.version) {
+          if (options.migrate) {
+            const migration = options.migrate(
+              deserializedStorageValue.state,
+              deserializedStorageValue.version
+            );
+            if (migration instanceof Promise) {
+              return migration.then((result) => [true, result]);
+            }
+            return [true, migration];
+          }
+          console.error(
+            `State loaded from storage couldn't be migrated since no migrate function was provided`
+          );
+        } else {
+          return [false, deserializedStorageValue.state];
+        }
+      }
+      return [false, void 0];
+    }).then((migrationResult) => {
+      var _a22;
+      const [migrated, migratedState] = migrationResult;
+      stateFromStorage = options.merge(
+        migratedState,
+        (_a22 = get()) != null ? _a22 : configResult
+      );
+      set(stateFromStorage, true);
+      if (migrated) {
+        return setItem();
+      }
+    }).then(() => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(stateFromStorage, void 0);
+      stateFromStorage = get();
+      hasHydrated = true;
+      finishHydrationListeners.forEach((cb) => cb(stateFromStorage));
+    }).catch((e) => {
+      postRehydrationCallback == null ? void 0 : postRehydrationCallback(void 0, e);
+    });
+  };
+  api.persist = {
+    setOptions: (newOptions) => {
+      options = {
+        ...options,
+        ...newOptions
+      };
+      if (newOptions.storage) {
+        storage = newOptions.storage;
+      }
+    },
+    clearStorage: () => {
+      storage == null ? void 0 : storage.removeItem(options.name);
+    },
+    getOptions: () => options,
+    rehydrate: () => hydrate(),
+    hasHydrated: () => hasHydrated,
+    onHydrate: (cb) => {
+      hydrationListeners.add(cb);
+      return () => {
+        hydrationListeners.delete(cb);
+      };
+    },
+    onFinishHydration: (cb) => {
+      finishHydrationListeners.add(cb);
+      return () => {
+        finishHydrationListeners.delete(cb);
+      };
+    }
+  };
+  if (!options.skipHydration) {
+    hydrate();
+  }
+  return stateFromStorage || configResult;
+};
+const persist = persistImpl;
+const useSettingsStore = create()(
+  persist(
+    (set) => ({
+      joystickSensitivity: 1,
+      cameraSensitivity: 1,
+      buttonSize: "medium",
+      hapticsEnabled: true,
+      setJoystickSensitivity: (v) => set({ joystickSensitivity: v }),
+      setCameraSensitivity: (v) => set({ cameraSensitivity: v }),
+      setButtonSize: (v) => set({ buttonSize: v }),
+      setHapticsEnabled: (v) => set({ hapticsEnabled: v })
+    }),
+    { name: "frontier-settings" }
+  )
+);
+const touchCameraMovement = { x: 0, y: 0 };
+const BOOST_DURATION_MS = 1500;
+const COOLDOWN_DURATION_MS = 4e3;
+const RADIUS = 20;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+function BoostButton() {
+  const [phase, setPhase] = reactExports.useState("ready");
+  const activeTimerRef = reactExports.useRef(null);
+  const cooldownTimerRef = reactExports.useRef(null);
+  const cooldownStartRef = reactExports.useRef(0);
+  const rafRef = reactExports.useRef(null);
+  const svgRef = reactExports.useRef(null);
+  const animateCooldown = reactExports.useCallback(() => {
+    const elapsed = performance.now() - cooldownStartRef.current;
+    const progress = Math.min(elapsed / COOLDOWN_DURATION_MS, 1);
+    const offset = progress * CIRCUMFERENCE;
+    if (svgRef.current) {
+      svgRef.current.style.strokeDashoffset = String(offset);
+    }
+    if (progress < 1) {
+      rafRef.current = requestAnimationFrame(animateCooldown);
+    }
+  }, []);
+  const activate = reactExports.useCallback(() => {
+    if (phase !== "ready") return;
+    setPhase("active");
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true })
+    );
+    activeTimerRef.current = setTimeout(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { code: "Space", key: " ", bubbles: true })
+      );
+      setPhase("cooling");
+      cooldownStartRef.current = performance.now();
+      if (svgRef.current) {
+        svgRef.current.style.strokeDashoffset = "0";
+      }
+      rafRef.current = requestAnimationFrame(animateCooldown);
+      cooldownTimerRef.current = setTimeout(() => {
+        setPhase("ready");
+        if (svgRef.current) {
+          svgRef.current.style.strokeDashoffset = String(CIRCUMFERENCE);
+        }
+      }, COOLDOWN_DURATION_MS);
+    }, BOOST_DURATION_MS);
+  }, [phase, animateCooldown]);
+  reactExports.useEffect(() => {
+    return () => {
+      if (activeTimerRef.current) clearTimeout(activeTimerRef.current);
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+  const isReady = phase === "ready";
+  const isActive = phase === "active";
+  const borderColor = isReady ? "rgba(0,200,255,0.8)" : isActive ? "rgba(255,180,0,0.9)" : "rgba(80,80,80,0.5)";
+  const bgColor = isReady ? "rgba(0,200,255,0.12)" : isActive ? "rgba(255,180,0,0.18)" : "rgba(30,30,30,0.4)";
+  const labelColor = isReady ? "#00ccff" : isActive ? "#ffb400" : "rgba(100,100,100,0.6)";
+  const glowColor = isReady ? "rgba(0,200,255,0.4)" : isActive ? "rgba(255,180,0,0.4)" : "transparent";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "3px",
+        pointerEvents: "auto"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: activate,
+            disabled: !isReady,
+            "data-ocid": "boost.button",
+            style: {
+              position: "relative",
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              border: `1.5px solid ${borderColor}`,
+              background: bgColor,
+              cursor: isReady ? "pointer" : "default",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backdropFilter: "blur(4px)",
+              boxShadow: `0 0 12px ${glowColor}`,
+              transition: "background 200ms ease, border-color 200ms ease, box-shadow 200ms ease",
+              padding: 0
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "svg",
+                {
+                  "aria-hidden": "true",
+                  width: "48",
+                  height: "48",
+                  viewBox: "0 0 48 48",
+                  style: {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    transform: "rotate(-90deg)",
+                    pointerEvents: "none",
+                    opacity: phase === "cooling" ? 1 : 0,
+                    transition: "opacity 200ms ease"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "circle",
+                      {
+                        cx: "24",
+                        cy: "24",
+                        r: RADIUS,
+                        fill: "none",
+                        stroke: "rgba(80,80,80,0.3)",
+                        strokeWidth: "2.5"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "circle",
+                      {
+                        ref: svgRef,
+                        cx: "24",
+                        cy: "24",
+                        r: RADIUS,
+                        fill: "none",
+                        stroke: "rgba(0,200,255,0.6)",
+                        strokeWidth: "2.5",
+                        strokeLinecap: "round",
+                        strokeDasharray: CIRCUMFERENCE,
+                        strokeDashoffset: CIRCUMFERENCE,
+                        style: { transition: "none" }
+                      }
+                    )
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  style: {
+                    fontFamily: "monospace",
+                    fontSize: "18px",
+                    lineHeight: 1,
+                    position: "relative",
+                    zIndex: 1,
+                    filter: isActive ? "brightness(1.5)" : "none"
+                  },
+                  children: isActive ? "⚡" : "🚀"
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "span",
+          {
+            style: {
+              fontFamily: "monospace",
+              fontSize: "8px",
+              fontWeight: "bold",
+              letterSpacing: "0.15em",
+              color: labelColor,
+              textShadow: isReady ? `0 0 5px ${labelColor}` : "none",
+              transition: "color 200ms ease"
+            },
+            children: phase === "cooling" ? "COOL" : "BOOST"
+          }
+        )
+      ]
+    }
+  );
+}
+const KEY_CODES = {
+  w: "KeyW",
+  a: "KeyA",
+  s: "KeyS",
+  d: "KeyD",
+  " ": "Space",
+  Space: "Space",
+  Shift: "ShiftLeft",
+  ShiftLeft: "ShiftLeft"
+};
+const BTN_SIZES = {
+  small: { joystick: "w-24 h-24" },
+  medium: { joystick: "w-28 h-28" },
+  large: { joystick: "w-32 h-32" }
+};
+const MobileControls = () => {
+  const isMobile2 = useDeviceStore((s) => s.isMobile);
+  const { joystickSensitivity, buttonSize, hapticsEnabled } = useSettingsStore();
+  const mode = useCameraStore((s) => s.mode);
+  const [joystickPos, setJoystickPos] = reactExports.useState({ x: 0, y: 0 });
+  const [lookPos, setLookPos] = reactExports.useState({ x: 0, y: 0 });
+  const joystickRef = reactExports.useRef(null);
+  const lookJoystickRef = reactExports.useRef(null);
+  const activeKeysRef = reactExports.useRef(/* @__PURE__ */ new Set());
+  const aimDecayRef = reactExports.useRef(null);
+  const swipeTouchRef = reactExports.useRef(null);
+  if (!isMobile2) return null;
+  const sizes = BTN_SIZES[buttonSize] ?? BTN_SIZES.medium;
+  const releaseKey = (key) => {
+    const code = KEY_CODES[key] ?? key;
+    if (activeKeysRef.current.has(code)) {
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { code, key, bubbles: true })
+      );
+      activeKeysRef.current.delete(code);
+    }
+  };
+  const pressKey = (key) => {
+    const code = KEY_CODES[key] ?? key;
+    if (!activeKeysRef.current.has(code)) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { code, key, bubbles: true })
+      );
+      activeKeysRef.current.add(code);
+    }
+  };
+  const releaseKeys = (keys) => {
+    for (const key of keys) releaseKey(key);
+  };
+  const handleJoystickMove = (e) => {
+    var _a2;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = (_a2 = joystickRef.current) == null ? void 0 : _a2.getBoundingClientRect();
+    if (!rect) return;
+    const rawX = touch.clientX - rect.left - rect.width / 2;
+    const rawY = touch.clientY - rect.top - rect.height / 2;
+    const maxDist = 40 * joystickSensitivity;
+    const dist = Math.hypot(rawX, rawY);
+    const clampedDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(rawY, rawX);
+    const cx = Math.cos(angle) * clampedDist;
+    const cy = Math.sin(angle) * clampedDist;
+    setJoystickPos({ x: cx, y: cy });
+    const threshold = 15;
+    const isCombat2 = mode === "combat";
+    const allKeys = isCombat2 ? ["a", "d", "Space", "ShiftLeft"] : ["w", "a", "s", "d"];
+    if (clampedDist > threshold) {
+      const xNorm = rawX / maxDist;
+      if (xNorm > 0.25) {
+        pressKey("d");
+        releaseKey("a");
+      } else if (xNorm < -0.25) {
+        pressKey("a");
+        releaseKey("d");
+      } else {
+        releaseKey("a");
+        releaseKey("d");
+      }
+      const yNorm = rawY / maxDist;
+      if (isCombat2) {
+        if (yNorm < -0.25) {
+          pressKey("Space");
+          releaseKey("ShiftLeft");
+        } else if (yNorm > 0.25) {
+          pressKey("ShiftLeft");
+          releaseKey("Space");
+        } else {
+          releaseKey("Space");
+          releaseKey("ShiftLeft");
+        }
+      } else {
+        if (yNorm < -0.25) {
+          pressKey("w");
+          releaseKey("s");
+        } else if (yNorm > 0.25) {
+          pressKey("s");
+          releaseKey("w");
+        } else {
+          releaseKey("w");
+          releaseKey("s");
+        }
+      }
+    } else {
+      releaseKeys(allKeys);
+    }
+  };
+  const handleJoystickEnd = () => {
+    setJoystickPos({ x: 0, y: 0 });
+    releaseKeys(["w", "a", "s", "d", "Space", "ShiftLeft"]);
+  };
+  const handleLookMove = (e) => {
+    var _a2;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = (_a2 = lookJoystickRef.current) == null ? void 0 : _a2.getBoundingClientRect();
+    if (!rect) return;
+    const rawX = touch.clientX - rect.left - rect.width / 2;
+    const rawY = touch.clientY - rect.top - rect.height / 2;
+    const maxDist = 40 * joystickSensitivity;
+    const dist = Math.hypot(rawX, rawY);
+    const clampedDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(rawY, rawX);
+    const cx = Math.cos(angle) * clampedDist;
+    const cy = Math.sin(angle) * clampedDist;
+    setLookPos({ x: cx, y: cy });
+    const isCombat2 = mode === "combat";
+    if (isCombat2) {
+      if (aimDecayRef.current !== null) {
+        clearInterval(aimDecayRef.current);
+        aimDecayRef.current = null;
+      }
+      const { setAimYaw, setAimPitch } = useCameraStore.getState();
+      setAimYaw(rawX / maxDist * (Math.PI / 2));
+      setAimPitch(rawY / maxDist * (Math.PI / 4));
+    } else {
+      const { freeRoamYaw, freeRoamPitch, setFreeRoamYaw, setFreeRoamPitch } = useCameraStore.getState();
+      const sensitivity = 0.015;
+      setFreeRoamYaw(freeRoamYaw + rawX / maxDist * sensitivity * 2);
+      setFreeRoamPitch(freeRoamPitch + rawY / maxDist * sensitivity * 2);
+    }
+  };
+  const handleLookEnd = () => {
+    setLookPos({ x: 0, y: 0 });
+    if (mode === "combat") {
+      const { setAimYaw, setAimPitch } = useCameraStore.getState();
+      setAimYaw(0);
+      setAimPitch(0);
+    }
+  };
+  const handleSwipeStart = (e) => {
+    if (swipeTouchRef.current !== null) return;
+    const touch = e.changedTouches[0];
+    swipeTouchRef.current = {
+      id: touch.identifier,
+      startX: touch.clientX,
+      startY: touch.clientY
+    };
+  };
+  const handleSwipeMove = (e) => {
+    e.preventDefault();
+    if (!swipeTouchRef.current) return;
+    for (let i2 = 0; i2 < e.changedTouches.length; i2++) {
+      const touch = e.changedTouches[i2];
+      if (touch.identifier === swipeTouchRef.current.id) {
+        const dx = touch.clientX - swipeTouchRef.current.startX;
+        const dy = touch.clientY - swipeTouchRef.current.startY;
+        touchCameraMovement.x += dx * 0.8;
+        touchCameraMovement.y += dy * 0.8;
+        swipeTouchRef.current.startX = touch.clientX;
+        swipeTouchRef.current.startY = touch.clientY;
+        break;
+      }
+    }
+  };
+  const handleSwipeEnd = (e) => {
+    if (!swipeTouchRef.current) return;
+    for (let i2 = 0; i2 < e.changedTouches.length; i2++) {
+      if (e.changedTouches[i2].identifier === swipeTouchRef.current.id) {
+        swipeTouchRef.current = null;
+        break;
+      }
+    }
+  };
+  const isFreeRoam = mode === "freeRoam";
+  const isCombat = mode === "combat";
+  const showRightJoystick = isFreeRoam || isCombat;
+  return (
+    /*
+     * Outer wrapper: pointer-events NONE so the center of the screen is fully
+     * clear for UI taps (WeaponPanel, nav bar, etc.).
+     * Only the explicit joystick/button elements get pointer-events AUTO.
+     */
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        "data-ocid": "mobile_controls.panel",
+        style: {
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: 50,
+          userSelect: "none"
+        },
+        children: [
+          !isFreeRoam && !isCombat && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                top: 0,
+                right: 0,
+                width: "50%",
+                height: "60%",
+                pointerEvents: "auto",
+                touchAction: "none"
+              },
+              onTouchStart: handleSwipeStart,
+              onTouchMove: handleSwipeMove,
+              onTouchEnd: handleSwipeEnd,
+              onTouchCancel: handleSwipeEnd
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                left: "8px",
+                bottom: "8px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "6px",
+                pointerEvents: "none"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { pointerEvents: "auto" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(BoostButton, {}) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "div",
+                  {
+                    style: {
+                      pointerEvents: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center"
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          ref: joystickRef,
+                          "data-ocid": "mobile_controls.canvas_target",
+                          onTouchStart: handleJoystickMove,
+                          onTouchMove: handleJoystickMove,
+                          onTouchEnd: handleJoystickEnd,
+                          onTouchCancel: handleJoystickEnd,
+                          className: `relative ${sizes.joystick} rounded-full bg-cyan-500/20 border-2 border-cyan-500/40 touch-none`,
+                          style: { touchAction: "none" },
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "div",
+                            {
+                              className: "absolute w-10 h-10 rounded-full bg-cyan-500/80 border-2 border-cyan-400 shadow-lg shadow-cyan-500/50",
+                              style: {
+                                top: "50%",
+                                left: "50%",
+                                transform: `translate(calc(-50% + ${joystickPos.x}px), calc(-50% + ${joystickPos.y}px))`
+                              }
+                            }
+                          )
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-cyan-500/70 mt-1 font-mono tracking-widest", children: "MOVE" })
+                    ]
+                  }
+                )
+              ]
+            }
+          ),
+          showRightJoystick && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                right: "8px",
+                bottom: "8px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                pointerEvents: "none"
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  style: {
+                    pointerEvents: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "div",
+                      {
+                        ref: lookJoystickRef,
+                        "data-ocid": "mobile_controls.look_canvas_target",
+                        onTouchStart: handleLookMove,
+                        onTouchMove: handleLookMove,
+                        onTouchEnd: handleLookEnd,
+                        onTouchCancel: handleLookEnd,
+                        className: `relative ${sizes.joystick} rounded-full touch-none ${isCombat ? "bg-amber-500/20 border-2 border-amber-500/40" : "bg-green-500/20 border-2 border-green-500/40"}`,
+                        style: { touchAction: "none" },
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "div",
+                          {
+                            className: `absolute w-10 h-10 rounded-full border-2 shadow-lg ${isCombat ? "bg-amber-500/80 border-amber-400 shadow-amber-500/50" : "bg-green-500/80 border-green-400 shadow-green-500/50"}`,
+                            style: {
+                              top: "50%",
+                              left: "50%",
+                              transform: `translate(calc(-50% + ${lookPos.x}px), calc(-50% + ${lookPos.y}px))`
+                            }
+                          }
+                        )
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "p",
+                      {
+                        className: `text-xs mt-1 font-mono tracking-widest ${isCombat ? "text-amber-500/70" : "text-green-500/70"}`,
+                        children: isCombat ? "AIM" : "LOOK"
+                      }
+                    )
+                  ]
+                }
+              )
+            }
+          )
+        ]
+      }
+    )
+  );
+};
 var constants = { exports: {} };
 var reactReconcilerConstants_production = {};
 /**
@@ -55395,31 +56189,9 @@ withSelector_production.useSyncExternalStoreWithSelector = function(subscribe, g
 }
 var withSelectorExports = withSelector.exports;
 const useSyncExternalStoreExports = /* @__PURE__ */ getDefaultExportFromCjs(withSelectorExports);
-const createStoreImpl = (createState) => {
-  let state2;
-  const listeners = /* @__PURE__ */ new Set();
-  const setState = (partial, replace) => {
-    const nextState = typeof partial === "function" ? partial(state2) : partial;
-    if (!Object.is(nextState, state2)) {
-      const previousState = state2;
-      state2 = (replace != null ? replace : typeof nextState !== "object" || nextState === null) ? nextState : Object.assign({}, state2, nextState);
-      listeners.forEach((listener) => listener(state2, previousState));
-    }
-  };
-  const getState = () => state2;
-  const getInitialState = () => initialState;
-  const subscribe = (listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
-  const api = { setState, getState, getInitialState, subscribe };
-  const initialState = state2 = createState(setState, getState, api);
-  return api;
-};
-const createStore$1 = (createState) => createState ? createStoreImpl(createState) : createStoreImpl;
 const { useSyncExternalStoreWithSelector } = useSyncExternalStoreExports;
-const identity$1 = (arg) => arg;
-function useStoreWithEqualityFn(api, selector = identity$1, equalityFn) {
+const identity = (arg) => arg;
+function useStoreWithEqualityFn(api, selector = identity, equalityFn) {
   const slice = useSyncExternalStoreWithSelector(
     api.subscribe,
     api.getState,
@@ -63414,6 +64186,62 @@ var reactReconciler_productionExports = reactReconciler_production.exports;
 }
 var reactReconcilerExports = reactReconciler.exports;
 const Reconciler = /* @__PURE__ */ getDefaultExportFromCjs(reactReconcilerExports);
+const isPromise = (promise) => typeof promise === "object" && typeof promise.then === "function";
+const globalCache = [];
+function shallowEqualArrays(arrA, arrB, equal = (a2, b2) => a2 === b2) {
+  if (arrA === arrB) return true;
+  if (!arrA || !arrB) return false;
+  const len = arrA.length;
+  if (arrB.length !== len) return false;
+  for (let i2 = 0; i2 < len; i2++) if (!equal(arrA[i2], arrB[i2])) return false;
+  return true;
+}
+function query(fn, keys = null, preload3 = false, config = {}) {
+  if (keys === null) keys = [fn];
+  for (const entry2 of globalCache) {
+    if (shallowEqualArrays(keys, entry2.keys, entry2.equal)) {
+      if (preload3) return void 0;
+      if (Object.prototype.hasOwnProperty.call(entry2, "error")) throw entry2.error;
+      if (Object.prototype.hasOwnProperty.call(entry2, "response")) {
+        if (config.lifespan && config.lifespan > 0) {
+          if (entry2.timeout) clearTimeout(entry2.timeout);
+          entry2.timeout = setTimeout(entry2.remove, config.lifespan);
+        }
+        return entry2.response;
+      }
+      if (!preload3) throw entry2.promise;
+    }
+  }
+  const entry = {
+    keys,
+    equal: config.equal,
+    remove: () => {
+      const index2 = globalCache.indexOf(entry);
+      if (index2 !== -1) globalCache.splice(index2, 1);
+    },
+    promise: (
+      // Execute the promise
+      (isPromise(fn) ? fn : fn(...keys)).then((response) => {
+        entry.response = response;
+        if (config.lifespan && config.lifespan > 0) {
+          entry.timeout = setTimeout(entry.remove, config.lifespan);
+        }
+      }).catch((error) => entry.error = error)
+    )
+  };
+  globalCache.push(entry);
+  if (!preload3) throw entry.promise;
+  return void 0;
+}
+const suspend = (fn, keys, config) => query(fn, keys, false, config);
+const preload = (fn, keys, config) => void query(fn, keys, true, config);
+const clear = (keys) => {
+  if (keys === void 0 || keys.length === 0) globalCache.splice(0, globalCache.length);
+  else {
+    const entry = globalCache.find((entry2) => shallowEqualArrays(keys, entry2.keys, entry2.equal));
+    if (entry) entry.remove();
+  }
+};
 function i$1(e, t, r) {
   if (!e) return;
   if (r(e) === true) return e;
@@ -63593,6 +64421,21 @@ const is = {
     return true;
   }
 };
+function buildGraph(object) {
+  const data = {
+    nodes: {},
+    materials: {},
+    meshes: {}
+  };
+  if (object) {
+    object.traverse((obj) => {
+      if (obj.name) data.nodes[obj.name] = obj;
+      if (obj.material && !data.materials[obj.material.name]) data.materials[obj.material.name] = obj.material;
+      if (obj.isMesh && !data.meshes[obj.name]) data.meshes[obj.name] = obj;
+    });
+  }
+  return data;
+}
 function dispose(obj) {
   if (obj.type !== "Scene") obj.dispose == null ? void 0 : obj.dispose();
   for (const p2 in obj) {
@@ -64175,7 +65018,7 @@ const createStore = (invalidate2, advance2) => {
       scene: null,
       xr: null,
       invalidate: (frames = 1) => invalidate2(get(), frames),
-      advance: (timestamp, runGlobalEffects) => advance2(timestamp, runGlobalEffects, get()),
+      advance: (timestamp2, runGlobalEffects) => advance2(timestamp2, runGlobalEffects, get()),
       legacy: false,
       linear: false,
       flat: false,
@@ -64328,21 +65171,60 @@ const createStore = (invalidate2, advance2) => {
   rootStore.subscribe((state3) => invalidate2(state3));
   return rootStore;
 };
-function useStore$1() {
+function useStore() {
   const store = reactExports.useContext(context);
   if (!store) throw new Error("R3F: Hooks can only be used within the Canvas component!");
   return store;
 }
 function useThree(selector = (state2) => state2, equalityFn) {
-  return useStore$1()(selector, equalityFn);
+  return useStore()(selector, equalityFn);
 }
 function useFrame(callback, renderPriority = 0) {
-  const store = useStore$1();
+  const store = useStore();
   const subscribe = store.getState().internal.subscribe;
   const ref = useMutableCallback(callback);
   useIsomorphicLayoutEffect(() => subscribe(ref, renderPriority, store), [renderPriority, subscribe, store]);
   return null;
 }
+const memoizedLoaders = /* @__PURE__ */ new WeakMap();
+const isConstructor$1 = (value) => {
+  var _value$prototype;
+  return typeof value === "function" && (value == null ? void 0 : (_value$prototype = value.prototype) == null ? void 0 : _value$prototype.constructor) === value;
+};
+function loadingFn(extensions, onProgress) {
+  return function(Proto, ...input) {
+    let loader;
+    if (isConstructor$1(Proto)) {
+      loader = memoizedLoaders.get(Proto);
+      if (!loader) {
+        loader = new Proto();
+        memoizedLoaders.set(Proto, loader);
+      }
+    } else {
+      loader = Proto;
+    }
+    if (extensions) extensions(loader);
+    return Promise.all(input.map((input2) => new Promise((res, reject) => loader.load(input2, (data) => {
+      if (isObject3D(data == null ? void 0 : data.scene)) Object.assign(data, buildGraph(data.scene));
+      res(data);
+    }, onProgress, (error) => reject(new Error(`Could not load ${input2}: ${error == null ? void 0 : error.message}`))))));
+  };
+}
+function useLoader(loader, input, extensions, onProgress) {
+  const keys = Array.isArray(input) ? input : [input];
+  const results = suspend(loadingFn(extensions, onProgress), [loader, ...keys], {
+    equal: is.equ
+  });
+  return Array.isArray(input) ? results : results[0];
+}
+useLoader.preload = function(loader, input, extensions) {
+  const keys = Array.isArray(input) ? input : [input];
+  return preload(loadingFn(extensions), [loader, ...keys]);
+};
+useLoader.clear = function(loader, input) {
+  const keys = Array.isArray(input) ? input : [input];
+  return clear([loader, ...keys]);
+};
 function createReconciler(config) {
   const reconciler2 = Reconciler(config);
   reconciler2.injectIntoDevTools({
@@ -64884,10 +65766,10 @@ function createRoot(canvas) {
       }));
       if (!state2.xr) {
         var _gl$xr;
-        const handleXRFrame = (timestamp, frame2) => {
+        const handleXRFrame = (timestamp2, frame2) => {
           const state3 = store.getState();
           if (state3.frameloop === "never") return;
-          advance(timestamp, true, state3, frame2);
+          advance(timestamp2, true, state3, frame2);
         };
         const handleSessionChange = () => {
           const state3 = store.getState();
@@ -65019,32 +65901,32 @@ function unmountComponentAtNode(canvas, callback) {
 const globalEffects = /* @__PURE__ */ new Set();
 const globalAfterEffects = /* @__PURE__ */ new Set();
 const globalTailEffects = /* @__PURE__ */ new Set();
-function run(effects, timestamp) {
+function run(effects, timestamp2) {
   if (!effects.size) return;
   for (const {
     callback
   } of effects.values()) {
-    callback(timestamp);
+    callback(timestamp2);
   }
 }
-function flushGlobalEffects(type, timestamp) {
+function flushGlobalEffects(type, timestamp2) {
   switch (type) {
     case "before":
-      return run(globalEffects, timestamp);
+      return run(globalEffects, timestamp2);
     case "after":
-      return run(globalAfterEffects, timestamp);
+      return run(globalAfterEffects, timestamp2);
     case "tail":
-      return run(globalTailEffects, timestamp);
+      return run(globalTailEffects, timestamp2);
   }
 }
 let subscribers;
 let subscription;
-function update(timestamp, state2, frame2) {
+function update(timestamp2, state2, frame2) {
   let delta = state2.clock.getDelta();
-  if (state2.frameloop === "never" && typeof timestamp === "number") {
-    delta = timestamp - state2.clock.elapsedTime;
+  if (state2.frameloop === "never" && typeof timestamp2 === "number") {
+    delta = timestamp2 - state2.clock.elapsedTime;
     state2.clock.oldTime = state2.clock.elapsedTime;
-    state2.clock.elapsedTime = timestamp;
+    state2.clock.elapsedTime = timestamp2;
   }
   subscribers = state2.internal.subscribers;
   for (let i2 = 0; i2 < subscribers.length; i2++) {
@@ -65060,23 +65942,23 @@ let useFrameInProgress = false;
 let repeat;
 let frame;
 let state;
-function loop(timestamp) {
+function loop(timestamp2) {
   frame = requestAnimationFrame(loop);
   running = true;
   repeat = 0;
-  flushGlobalEffects("before", timestamp);
+  flushGlobalEffects("before", timestamp2);
   useFrameInProgress = true;
   for (const root2 of _roots.values()) {
     var _state$gl$xr;
     state = root2.store.getState();
     if (state.internal.active && (state.frameloop === "always" || state.internal.frames > 0) && !((_state$gl$xr = state.gl.xr) != null && _state$gl$xr.isPresenting)) {
-      repeat += update(timestamp, state);
+      repeat += update(timestamp2, state);
     }
   }
   useFrameInProgress = false;
-  flushGlobalEffects("after", timestamp);
+  flushGlobalEffects("after", timestamp2);
   if (repeat === 0) {
-    flushGlobalEffects("tail", timestamp);
+    flushGlobalEffects("tail", timestamp2);
     running = false;
     return cancelAnimationFrame(frame);
   }
@@ -65099,11 +65981,11 @@ function invalidate(state2, frames = 1) {
     requestAnimationFrame(loop);
   }
 }
-function advance(timestamp, runGlobalEffects = true, state2, frame2) {
-  if (runGlobalEffects) flushGlobalEffects("before", timestamp);
-  if (!state2) for (const root2 of _roots.values()) update(timestamp, root2.store.getState());
-  else update(timestamp, state2, frame2);
-  if (runGlobalEffects) flushGlobalEffects("after", timestamp);
+function advance(timestamp2, runGlobalEffects = true, state2, frame2) {
+  if (runGlobalEffects) flushGlobalEffects("before", timestamp2);
+  if (!state2) for (const root2 of _roots.values()) update(timestamp2, root2.store.getState());
+  else update(timestamp2, state2, frame2);
+  if (runGlobalEffects) flushGlobalEffects("after", timestamp2);
 }
 const DOM_EVENTS = {
   onClick: ["click", false],
@@ -65377,38 +66259,431 @@ function Canvas(props) {
     })
   });
 }
-const identity = (arg) => arg;
-function useStore(api, selector = identity) {
-  const slice = React$4.useSyncExternalStore(
-    api.subscribe,
-    React$4.useCallback(() => selector(api.getState()), [api, selector]),
-    React$4.useCallback(() => selector(api.getInitialState()), [api, selector])
-  );
-  React$4.useDebugValue(slice);
-  return slice;
-}
-const createImpl = (createState) => {
-  const api = createStore$1(createState);
-  const useBoundStore = (selector) => useStore(api, selector);
-  Object.assign(useBoundStore, api);
-  return useBoundStore;
+const scriptRel = "modulepreload";
+const assetsURL = function(dep) {
+  return "/" + dep;
 };
-const create = (createState) => createState ? createImpl(createState) : createImpl;
+const seen = {};
+const __vitePreload = function preload2(baseModule, deps, importerUrl) {
+  let promise = Promise.resolve();
+  if (deps && deps.length > 0) {
+    document.getElementsByTagName("link");
+    const cspNonceMeta = document.querySelector(
+      "meta[property=csp-nonce]"
+    );
+    const cspNonce = (cspNonceMeta == null ? void 0 : cspNonceMeta.nonce) || (cspNonceMeta == null ? void 0 : cspNonceMeta.getAttribute("nonce"));
+    promise = Promise.allSettled(
+      deps.map((dep) => {
+        dep = assetsURL(dep);
+        if (dep in seen) return;
+        seen[dep] = true;
+        const isCss = dep.endsWith(".css");
+        const cssSelector = isCss ? '[rel="stylesheet"]' : "";
+        if (document.querySelector(`link[href="${dep}"]${cssSelector}`)) {
+          return;
+        }
+        const link = document.createElement("link");
+        link.rel = isCss ? "stylesheet" : scriptRel;
+        if (!isCss) {
+          link.as = "script";
+        }
+        link.crossOrigin = "";
+        link.href = dep;
+        if (cspNonce) {
+          link.setAttribute("nonce", cspNonce);
+        }
+        document.head.appendChild(link);
+        if (isCss) {
+          return new Promise((res, rej) => {
+            link.addEventListener("load", res);
+            link.addEventListener(
+              "error",
+              () => rej(new Error(`Unable to preload CSS for ${dep}`))
+            );
+          });
+        }
+      })
+    );
+  }
+  function handlePreloadError(err) {
+    const e = new Event("vite:preloadError", {
+      cancelable: true
+    });
+    e.payload = err;
+    window.dispatchEvent(e);
+    if (!e.defaultPrevented) {
+      throw err;
+    }
+  }
+  return promise.then((res) => {
+    for (const item of res || []) {
+      if (item.status !== "rejected") continue;
+      handlePreloadError(item.reason);
+    }
+    return baseModule().catch(handlePreloadError);
+  });
+};
+const DEFAULT_STATE = {
+  position: [0, 0, 0],
+  velocity: [0, 0, 0],
+  rotation: [0, 0, 0],
+  fuel: 100,
+  maxFuel: 100,
+  hull: 100,
+  maxHull: 100,
+  cargo: 0,
+  maxCargo: 500,
+  oxygen: 100,
+  power: 100,
+  shieldStrength: 0,
+  speed: 50,
+  miningPower: 10,
+  installedComponents: [],
+  isMining: false,
+  miningTarget: null,
+  miningProgress: 0
+};
+const useShipStore = create((set) => ({
+  ...DEFAULT_STATE,
+  setPosition: (pos) => set({ position: pos }),
+  setVelocity: (vel) => set({ velocity: vel }),
+  setRotation: (rot) => set({ rotation: rot }),
+  takeDamage: (amount) => set((s) => {
+    const shieldAbsorb = Math.min(s.shieldStrength, amount);
+    const hullDamage = amount - shieldAbsorb;
+    return {
+      hull: Math.max(0, s.hull - hullDamage),
+      shieldStrength: Math.max(0, s.shieldStrength - shieldAbsorb)
+    };
+  }),
+  consumeFuel: (amount) => set((s) => ({ fuel: Math.max(0, s.fuel - amount) })),
+  refuel: (amount) => set((s) => ({ fuel: Math.min(s.maxFuel, s.fuel + amount) })),
+  repairHull: (amount) => set((s) => ({ hull: Math.min(s.maxHull, s.hull + amount) })),
+  updateOxygen: (delta) => set((s) => ({ oxygen: Math.max(0, Math.min(100, s.oxygen + delta)) })),
+  updateHull: (delta) => set((s) => ({ hull: Math.max(0, Math.min(s.maxHull, s.hull + delta)) })),
+  updatePower: (delta) => set((s) => ({ power: Math.max(0, Math.min(100, s.power + delta)) })),
+  updateFuel: (delta) => set((s) => ({ fuel: Math.max(0, Math.min(s.maxFuel, s.fuel + delta)) })),
+  addCargo: (weight) => set((s) => ({ cargo: s.cargo + weight })),
+  removeCargo: (weight) => set((s) => ({ cargo: Math.max(0, s.cargo - weight) })),
+  setMining: (isMining, targetId = null) => set({ isMining, miningTarget: targetId, miningProgress: 0 }),
+  setMiningProgress: (progress) => set({ miningProgress: progress }),
+  installComponent: (component) => set((s) => {
+    const stats = component.stats;
+    return {
+      installedComponents: [
+        ...s.installedComponents,
+        { ...component, installed: true }
+      ],
+      maxHull: s.maxHull + (stats.maxHull ?? 0),
+      maxFuel: s.maxFuel + (stats.maxFuel ?? 0),
+      maxCargo: s.maxCargo + (stats.maxCargo ?? 0),
+      speed: s.speed + (stats.speed ?? 0),
+      miningPower: s.miningPower + (stats.miningPower ?? 0),
+      shieldStrength: s.shieldStrength + (stats.shieldStrength ?? 0)
+    };
+  }),
+  reset: () => set(DEFAULT_STATE)
+}));
+const STORY_EVENTS = {
+  // ── original events ──────────────────────────────────────────────────────
+  p1_systems_damaged: {
+    id: "p1_systems_damaged",
+    speaker: "A.E.G.I.S.",
+    dialogue: "WARNING: Critical system failure detected. Hull integrity at 42%. Navigation offline. Commander, we need to assess the damage before it is too late.",
+    choices: [
+      {
+        id: "scan",
+        text: "Run a full diagnostic scan",
+        nextEvent: "p1_scan_results"
+      },
+      {
+        id: "repair",
+        text: "Begin emergency repairs",
+        nextEvent: "p1_repair_start",
+        effects: { hull: 15, power: -10 }
+      },
+      {
+        id: "ignore",
+        text: "We push on. No time to stop.",
+        nextEvent: void 0
+      }
+    ]
+  },
+  p1_scan_results: {
+    id: "p1_scan_results",
+    speaker: "A.E.G.I.S.",
+    dialogue: "Scan complete. Three critical systems are offline: propulsion dampeners, the oxygen recycler, and long-range comms. I recommend prioritizing the recycler.",
+    choices: [
+      {
+        id: "recycler",
+        text: "Fix the oxygen recycler first",
+        nextEvent: void 0,
+        effects: { oxygen: 20, power: -15 }
+      },
+      {
+        id: "propulsion",
+        text: "Propulsion comes first",
+        nextEvent: void 0,
+        effects: { fuel: 20, power: -10 }
+      },
+      {
+        id: "comms",
+        text: "Restore comms -- we need backup",
+        nextEvent: void 0
+      }
+    ]
+  },
+  p1_repair_start: {
+    id: "p1_repair_start",
+    speaker: "A.E.G.I.S.",
+    dialogue: "Emergency repair sequence initiated. I will need you to gather raw materials from the nearby asteroid cluster. Iron and Silicon should do the trick.",
+    choices: [
+      { id: "mine", text: "Head to the asteroid field", nextEvent: void 0 },
+      {
+        id: "scavenge",
+        text: "Check the derelict ships nearby",
+        nextEvent: void 0
+      }
+    ]
+  },
+  // ── story mode events ──────────────────────────────────────────────────
+  depot_arrival: {
+    id: "depot_arrival",
+    speaker: "A.E.G.I.S.",
+    dialogue: "Commander, this depot appears functional. We should resupply.",
+    choices: [
+      {
+        id: "repair_hull",
+        text: "Repair hull (+20 hull, -50 credits)",
+        effects: { hull: 20 }
+      },
+      {
+        id: "refuel",
+        text: "Refuel (+30 fuel)",
+        effects: { fuel: 30 }
+      },
+      {
+        id: "leave",
+        text: "Leave",
+        effects: {}
+      }
+    ]
+  },
+  systems_critical: {
+    id: "systems_critical",
+    speaker: "A.E.G.I.S.",
+    dialogue: "Warning. Multiple system failures detected. We need to act now, Commander.",
+    choices: [
+      {
+        id: "fix_life_support",
+        text: "Fix life support (+15 O₂, -10 PWR)",
+        effects: { oxygen: 15, power: -10 }
+      },
+      {
+        id: "repair_hull",
+        text: "Repair hull (+20 hull)",
+        effects: { hull: 20 }
+      },
+      {
+        id: "balance_systems",
+        text: "Balance systems (+5 all)",
+        effects: { oxygen: 5, hull: 5, power: 5, fuel: 5 }
+      }
+    ]
+  },
+  strange_signal: {
+    id: "strange_signal",
+    speaker: "A.E.G.I.S.",
+    dialogue: "I'm detecting an unusual transmission... Commander, this could be important.",
+    choices: [
+      {
+        id: "investigate",
+        text: "Investigate",
+        effects: {}
+      },
+      {
+        id: "ignore",
+        text: "Ignore",
+        effects: {}
+      }
+    ]
+  }
+};
+const useStoryStore = create((set, get) => ({
+  currentEvent: null,
+  isVisible: false,
+  completedEvents: [],
+  currentStage: 1,
+  isStoryMode: false,
+  storyStartTime: null,
+  nearDepot: false,
+  triggerEvent: (eventId) => {
+    const event = STORY_EVENTS[eventId];
+    if (event) set({ currentEvent: event, isVisible: true });
+  },
+  selectChoice: (choice) => {
+    var _a2;
+    const effects = choice.effects ?? {};
+    const ship = useShipStore.getState();
+    if (effects.oxygen) ship.updateOxygen(effects.oxygen);
+    if (effects.hull) ship.updateHull(effects.hull);
+    if (effects.power) ship.updatePower(effects.power);
+    if (effects.fuel) ship.updateFuel(effects.fuel);
+    const currentId = (_a2 = get().currentEvent) == null ? void 0 : _a2.id;
+    if (currentId) {
+      get().markEventComplete(currentId);
+    }
+    if (choice.nextEvent) {
+      const next = STORY_EVENTS[choice.nextEvent];
+      if (next) {
+        set({ currentEvent: next, isVisible: true });
+        get().checkUnlocks();
+        return;
+      }
+    }
+    set({ isVisible: false });
+    get().checkUnlocks();
+  },
+  dismiss: () => set({ isVisible: false }),
+  enterStoryMode: () => {
+    __vitePreload(async () => {
+      const { useCameraStore: useCameraStore2 } = await Promise.resolve().then(() => cameraStore);
+      return { useCameraStore: useCameraStore2 };
+    }, true ? void 0 : void 0).then(({ useCameraStore: useCameraStore2 }) => {
+      useCameraStore2.getState().setMode("freeRoam");
+      useCameraStore2.getState().setFreeRoamPos({ x: 420, y: 0, z: 420 });
+    });
+    set({ isStoryMode: true, storyStartTime: Date.now() });
+  },
+  exitStoryMode: () => set({ isStoryMode: false, storyStartTime: null, nearDepot: false }),
+  setNearDepot: (near) => set({ nearDepot: near }),
+  markEventComplete: (eventId) => set((s) => ({
+    completedEvents: s.completedEvents.includes(eventId) ? s.completedEvents : [...s.completedEvents, eventId]
+  })),
+  checkUnlocks: () => {
+    const { completedEvents, isVisible } = get();
+    if (completedEvents.includes("depot_arrival") && completedEvents.includes("systems_critical") && !completedEvents.includes("strange_signal") && !isVisible) {
+      get().triggerEvent("strange_signal");
+    }
+  }
+}));
+const DEPOT_POSITION = [500, 0, 500];
+const PROXIMITY_THRESHOLD = 50;
+function SpaceDepot() {
+  const { camera } = useThree();
+  useFrame(() => {
+    const depotVec = new Vector3(...DEPOT_POSITION);
+    const dist = camera.position.distanceTo(depotVec);
+    const store = useStoryStore.getState();
+    const shouldBeNear = dist < PROXIMITY_THRESHOLD;
+    if (store.nearDepot !== shouldBeNear) {
+      store.setNearDepot(shouldBeNear);
+    }
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("group", { position: DEPOT_POSITION, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("pointLight", { color: "#00ccff", intensity: 2, distance: 80 }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("cylinderGeometry", { args: [3, 3, 8, 16] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: "#334455",
+          emissive: "#001122",
+          metalness: 0.8,
+          roughness: 0.3
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { rotation: [Math.PI / 2, 0, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("torusGeometry", { args: [4, 0.4, 8, 32] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: "#223344",
+          emissive: "#002233",
+          metalness: 0.9,
+          roughness: 0.2
+        }
+      )
+    ] }),
+    [0, 1, 2, 3].map((i2) => {
+      const angle = i2 * Math.PI / 2;
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "mesh",
+        {
+          position: [Math.cos(angle) * 5, 0, Math.sin(angle) * 5],
+          rotation: [0, -angle, 0],
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("boxGeometry", { args: [8, 1, 1] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "meshStandardMaterial",
+              {
+                color: "#334455",
+                emissive: "#001122",
+                metalness: 0.8,
+                roughness: 0.3
+              }
+            )
+          ]
+        },
+        i2
+      );
+    }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [0, 5, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("cylinderGeometry", { args: [0.15, 0.15, 4, 6] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: "#445566",
+          emissive: "#001133",
+          metalness: 0.9,
+          roughness: 0.2
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [1.2, 5.5, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("cylinderGeometry", { args: [0.1, 0.1, 2.5, 6] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: "#445566",
+          emissive: "#001133",
+          metalness: 0.9,
+          roughness: 0.2
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [0, 4.2, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [0.25, 8, 8] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: "#00ffff",
+          emissive: "#00aaff",
+          emissiveIntensity: 2
+        }
+      )
+    ] })
+  ] });
+}
 const useGameStore = create((set) => ({
   isPaused: false,
   showHUD: true,
   gameMode: "exploration",
   credits: 0,
+  score: 0,
   discoveredLocations: [],
   notifications: [],
   gameStarted: false,
   showInventory: false,
   showCrafting: false,
   showPauseMenu: false,
+  nearestTargetDistance: Number.POSITIVE_INFINITY,
   setPaused: (paused) => set({ isPaused: paused }),
   toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
   setGameMode: (mode) => set({ gameMode: mode }),
   addCredits: (amount) => set((s) => ({ credits: s.credits + amount })),
+  addScore: (amount) => set((s) => ({ score: s.score + amount })),
   discoverLocation: (location2) => set((s) => ({
     discoveredLocations: s.discoveredLocations.some(
       (l2) => l2.id === location2.id
@@ -65430,8 +66705,2184 @@ const useGameStore = create((set) => ({
   setGameStarted: (started) => set({ gameStarted: started }),
   toggleInventory: () => set((s) => ({ showInventory: !s.showInventory, showCrafting: false })),
   toggleCrafting: () => set((s) => ({ showCrafting: !s.showCrafting, showInventory: false })),
-  togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu }))
+  togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu })),
+  setNearestTargetDistance: (dist) => set({ nearestTargetDistance: dist })
 }));
+const useLaneStore = create((set, get) => ({
+  currentLane: 3,
+  laneRadii: [1.6, 1.9, 2.2, 2.5, 2.8],
+  aimAngle: 0,
+  laneFlash: false,
+  changeLane: (direction) => {
+    const current = get().currentLane;
+    const newLane = direction === "up" ? Math.min(5, current + 1) : Math.max(1, current - 1);
+    if (newLane !== current) {
+      set({ currentLane: newLane, laneFlash: true });
+      setTimeout(() => set({ laneFlash: false }), 300);
+    }
+  },
+  setAimAngle: (angle) => {
+    set({ aimAngle: Math.max(-90, Math.min(90, angle)) });
+  },
+  getCurrentRadius: () => {
+    const { currentLane, laneRadii } = get();
+    return laneRadii[currentLane - 1];
+  }
+}));
+const useExplosionStore = create((set) => ({
+  explosions: [],
+  addExplosion: (position) => {
+    const explosion = {
+      id: `exp-${Date.now()}-${Math.random()}`,
+      position: position.clone(),
+      createdAt: Date.now()
+    };
+    set((state2) => ({ explosions: [...state2.explosions, explosion] }));
+  },
+  removeExplosion: (id) => set((state2) => ({
+    explosions: state2.explosions.filter((e) => e.id !== id)
+  }))
+}));
+const useProjectileStore = create((set) => ({
+  projectiles: [],
+  addProjectile: (data) => {
+    const projectile = {
+      ...data,
+      id: `proj-${Date.now()}-${Math.random()}`,
+      createdAt: Date.now()
+    };
+    set((state2) => ({ projectiles: [...state2.projectiles, projectile] }));
+  },
+  removeProjectile: (id) => set((state2) => ({
+    projectiles: state2.projectiles.filter((p2) => p2.id !== id)
+  })),
+  clearProjectiles: () => set({ projectiles: [] })
+}));
+const useWeaponsStore = create((set, get) => ({
+  activeWeapon: "pulse",
+  cooldowns: { pulse: 0, rail: 0, missile: 0 },
+  ammo: { pulse: Number.POSITIVE_INFINITY, rail: 50, missile: 10 },
+  missileLocking: false,
+  missileLockTimer: 0,
+  missileLockTarget: null,
+  setActiveWeapon: (id) => set({ activeWeapon: id }),
+  setCooldown: (weaponId, value) => set((state2) => ({
+    cooldowns: { ...state2.cooldowns, [weaponId]: value }
+  })),
+  tickCooldowns: (delta) => set((state2) => {
+    const updated = {};
+    for (const [id, cd] of Object.entries(state2.cooldowns)) {
+      updated[id] = Math.max(0, cd - delta);
+    }
+    return { cooldowns: updated };
+  }),
+  consumeAmmo: (weaponId) => set((state2) => ({
+    ammo: {
+      ...state2.ammo,
+      [weaponId]: Math.max(0, (state2.ammo[weaponId] ?? 0) - 1)
+    }
+  })),
+  startMissileLock: (targetId) => set({
+    missileLocking: true,
+    missileLockTimer: 0,
+    missileLockTarget: targetId
+  }),
+  cancelMissileLock: () => set({
+    missileLocking: false,
+    missileLockTimer: 0,
+    missileLockTarget: null
+  }),
+  tickMissileLock: (delta) => {
+    const { missileLocking, missileLockTimer } = get();
+    if (!missileLocking) return false;
+    const newTimer = missileLockTimer + delta;
+    if (newTimer >= 1.5) {
+      set({ missileLocking: false, missileLockTimer: 0 });
+      return true;
+    }
+    set({ missileLockTimer: newTimer });
+    return false;
+  }
+}));
+const useEnemyStore = create((set) => ({
+  enemies: [],
+  lockedTarget: null,
+  wave: 1,
+  addEnemy: (enemy) => set((state2) => ({ enemies: [...state2.enemies, enemy] })),
+  removeEnemy: (id) => set((state2) => ({ enemies: state2.enemies.filter((e) => e.id !== id) })),
+  damageEnemy: (id, amount) => set((state2) => ({
+    enemies: state2.enemies.map(
+      (e) => e.id === id ? { ...e, hp: Math.max(0, e.hp - amount) } : e
+    ).filter((e) => e.hp > 0)
+  })),
+  setLockedTarget: (id) => set({ lockedTarget: id }),
+  clearEnemies: () => set({ enemies: [], lockedTarget: null }),
+  incrementWave: () => set((state2) => ({ wave: state2.wave + 1 })),
+  setAllHostile: () => set((state2) => ({
+    enemies: state2.enemies.map((e) => ({ ...e, hostile: true }))
+  })),
+  setEnemyHostile: (id) => set((state2) => ({
+    enemies: state2.enemies.map(
+      (e) => e.id === id ? { ...e, hostile: true } : e
+    )
+  }))
+}));
+const ENEMY_CONFIGS = [
+  {
+    type: "scout",
+    label: "Scout",
+    hp: 30,
+    speed: 0.8,
+    damage: 5,
+    reward: 15,
+    scoreValue: 100,
+    scale: 0.3,
+    color: "#ff4444"
+  },
+  {
+    type: "cruiser",
+    label: "Cruiser",
+    hp: 150,
+    speed: 0.3,
+    damage: 20,
+    reward: 50,
+    scoreValue: 350,
+    scale: 0.7,
+    color: "#ff6600"
+  },
+  {
+    type: "dreadnought",
+    label: "Dreadnought",
+    hp: 500,
+    speed: 0.15,
+    damage: 60,
+    reward: 200,
+    scoreValue: 1e3,
+    scale: 1.4,
+    color: "#cc0000"
+  },
+  {
+    type: "drone",
+    label: "Drone",
+    hp: 10,
+    speed: 1.2,
+    damage: 3,
+    reward: 5,
+    scoreValue: 50,
+    scale: 0.15,
+    color: "#ff4444"
+  }
+];
+const ENEMY_CONFIG_MAP = Object.fromEntries(
+  ENEMY_CONFIGS.map((e) => [e.type, e])
+);
+const PHASE_ENEMY_POOL = {
+  1: ["scout"],
+  2: ["scout", "cruiser"],
+  3: ["scout", "cruiser"],
+  4: ["scout", "cruiser", "dreadnought", "drone"],
+  5: ["cruiser", "dreadnought", "drone"],
+  6: ["dreadnought"]
+};
+const ENEMY_VISUAL_SCALE$1 = 10;
+const ENEMY_WORLD_RADIUS = 80;
+function Projectile({
+  id,
+  position,
+  direction,
+  speed,
+  damage,
+  color,
+  maxLifetime,
+  weaponType,
+  targetId,
+  onExpire,
+  onHit
+}) {
+  const meshRef = reactExports.useRef(null);
+  const posRef = reactExports.useRef(new Vector3(...position));
+  const dirRef = reactExports.useRef(new Vector3(...direction).normalize());
+  const ageRef = reactExports.useRef(0);
+  const hitRef = reactExports.useRef(false);
+  useFrame((_, delta) => {
+    if (!meshRef.current || hitRef.current) return;
+    ageRef.current += delta;
+    if (ageRef.current > maxLifetime) {
+      onExpire(id);
+      return;
+    }
+    if (weaponType === "missile" && targetId) {
+      const enemy = useEnemyStore.getState().enemies.find((e) => e.id === targetId);
+      if (enemy) {
+        const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+        const tx = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+        const ty = dist * Math.sin(enemy.phi);
+        const tz = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+        const targetVec = new Vector3(tx, ty, tz);
+        const toTarget = targetVec.clone().sub(posRef.current).normalize();
+        dirRef.current.lerp(toTarget, delta * 3).normalize();
+      }
+    }
+    posRef.current.addScaledVector(dirRef.current, speed * delta);
+    meshRef.current.position.copy(posRef.current);
+    const { enemies, damageEnemy } = useEnemyStore.getState();
+    for (const enemy of enemies) {
+      const cfg = ENEMY_CONFIG_MAP[enemy.type];
+      if (!cfg) continue;
+      const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+      const ex = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+      const ey = dist * Math.sin(enemy.phi);
+      const ez = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+      const hitRadius = cfg.scale * ENEMY_VISUAL_SCALE$1 * 0.6;
+      const dx = posRef.current.x - ex;
+      const dy = posRef.current.y - ey;
+      const dz = posRef.current.z - ez;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < hitRadius) {
+        hitRef.current = true;
+        damageEnemy(enemy.id, damage);
+        useExplosionStore.getState().addExplosion(new Vector3(ex, ey, ez));
+        const stillAlive = useEnemyStore.getState().enemies.find((e) => e.id === enemy.id);
+        if (!stillAlive) {
+          const cfg2 = ENEMY_CONFIG_MAP[enemy.type];
+          if (cfg2) {
+            useGameStore.getState().addCredits(cfg2.reward);
+            useGameStore.getState().addScore(cfg2.scoreValue);
+            useGameStore.getState().addNotification(
+              `+${cfg2.scoreValue} pts — ${cfg2.label} destroyed!`,
+              "success"
+            );
+          }
+        }
+        onHit(id);
+        return;
+      }
+    }
+  });
+  const isRail = weaponType === "rail";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { ref: meshRef, position, children: [
+    isRail ? /* @__PURE__ */ jsxRuntimeExports.jsx("cylinderGeometry", { args: [0.05, 0.05, 4, 4] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [0.3, 6, 6] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("meshBasicMaterial", { color }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "pointLight",
+      {
+        color,
+        intensity: isRail ? 4 : 2,
+        distance: isRail ? 12 : 8
+      }
+    )
+  ] });
+}
+const CONE_ANGLE = Math.PI / 4;
+function CombatTargetingSystem() {
+  const { camera } = useThree();
+  useFrame(() => {
+    const { enemies, lockedTarget, setLockedTarget } = useEnemyStore.getState();
+    if (enemies.length === 0) {
+      if (lockedTarget) setLockedTarget(null);
+      return;
+    }
+    const camPos = camera.position.clone();
+    const camForward = new Vector3(0, 0, -1).applyQuaternion(
+      camera.quaternion
+    );
+    let nearestId = null;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    for (const enemy of enemies) {
+      const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+      const ex = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+      const ey = dist * Math.sin(enemy.phi);
+      const ez = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+      const enemyPos = new Vector3(ex, ey, ez);
+      const toEnemy = enemyPos.clone().sub(camPos);
+      const distToEnemy = toEnemy.length();
+      const dirToEnemy = toEnemy.clone().normalize();
+      const angle = camForward.angleTo(dirToEnemy);
+      if (angle <= CONE_ANGLE && distToEnemy < nearestDist) {
+        nearestDist = distToEnemy;
+        nearestId = enemy.id;
+      }
+    }
+    for (const enemy of enemies) {
+      const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+      const ex = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+      const ey = dist * Math.sin(enemy.phi);
+      const ez = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+      const enemyPos = new Vector3(ex, ey, ez);
+      enemy.distance = enemyPos.distanceTo(camPos);
+    }
+    if (nearestId !== lockedTarget) {
+      setLockedTarget(nearestId);
+    }
+  });
+  return null;
+}
+function _extends() {
+  return _extends = Object.assign ? Object.assign.bind() : function(n) {
+    for (var e = 1; e < arguments.length; e++) {
+      var t = arguments[e];
+      for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]);
+    }
+    return n;
+  }, _extends.apply(null, arguments);
+}
+const v1 = /* @__PURE__ */ new Vector3();
+const v2 = /* @__PURE__ */ new Vector3();
+const v3 = /* @__PURE__ */ new Vector3();
+const v4 = /* @__PURE__ */ new Vector2();
+function defaultCalculatePosition(el, camera, size) {
+  const objectPos = v1.setFromMatrixPosition(el.matrixWorld);
+  objectPos.project(camera);
+  const widthHalf = size.width / 2;
+  const heightHalf = size.height / 2;
+  return [objectPos.x * widthHalf + widthHalf, -(objectPos.y * heightHalf) + heightHalf];
+}
+function isObjectBehindCamera(el, camera) {
+  const objectPos = v1.setFromMatrixPosition(el.matrixWorld);
+  const cameraPos = v2.setFromMatrixPosition(camera.matrixWorld);
+  const deltaCamObj = objectPos.sub(cameraPos);
+  const camDir = camera.getWorldDirection(v3);
+  return deltaCamObj.angleTo(camDir) > Math.PI / 2;
+}
+function isObjectVisible(el, camera, raycaster, occlude) {
+  const elPos = v1.setFromMatrixPosition(el.matrixWorld);
+  const screenPos = elPos.clone();
+  screenPos.project(camera);
+  v4.set(screenPos.x, screenPos.y);
+  raycaster.setFromCamera(v4, camera);
+  const intersects2 = raycaster.intersectObjects(occlude, true);
+  if (intersects2.length) {
+    const intersectionDistance = intersects2[0].distance;
+    const pointDistance = elPos.distanceTo(raycaster.ray.origin);
+    return pointDistance < intersectionDistance;
+  }
+  return true;
+}
+function objectScale(el, camera) {
+  if (camera instanceof OrthographicCamera) {
+    return camera.zoom;
+  } else if (camera instanceof PerspectiveCamera) {
+    const objectPos = v1.setFromMatrixPosition(el.matrixWorld);
+    const cameraPos = v2.setFromMatrixPosition(camera.matrixWorld);
+    const vFOV = camera.fov * Math.PI / 180;
+    const dist = objectPos.distanceTo(cameraPos);
+    const scaleFOV = 2 * Math.tan(vFOV / 2) * dist;
+    return 1 / scaleFOV;
+  } else {
+    return 1;
+  }
+}
+function objectZIndex(el, camera, zIndexRange) {
+  if (camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera) {
+    const objectPos = v1.setFromMatrixPosition(el.matrixWorld);
+    const cameraPos = v2.setFromMatrixPosition(camera.matrixWorld);
+    const dist = objectPos.distanceTo(cameraPos);
+    const A = (zIndexRange[1] - zIndexRange[0]) / (camera.far - camera.near);
+    const B = zIndexRange[1] - A * camera.far;
+    return Math.round(A * dist + B);
+  }
+  return void 0;
+}
+const epsilon = (value) => Math.abs(value) < 1e-10 ? 0 : value;
+function getCSSMatrix(matrix, multipliers, prepend = "") {
+  let matrix3d = "matrix3d(";
+  for (let i2 = 0; i2 !== 16; i2++) {
+    matrix3d += epsilon(multipliers[i2] * matrix.elements[i2]) + (i2 !== 15 ? "," : ")");
+  }
+  return prepend + matrix3d;
+}
+const getCameraCSSMatrix = /* @__PURE__ */ ((multipliers) => {
+  return (matrix) => getCSSMatrix(matrix, multipliers);
+})([1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1]);
+const getObjectCSSMatrix = /* @__PURE__ */ ((scaleMultipliers) => {
+  return (matrix, factor) => getCSSMatrix(matrix, scaleMultipliers(factor), "translate(-50%,-50%)");
+})((f) => [1 / f, 1 / f, 1 / f, 1, -1 / f, -1 / f, -1 / f, -1, 1 / f, 1 / f, 1 / f, 1, 1, 1, 1, 1]);
+function isRefObject(ref) {
+  return ref && typeof ref === "object" && "current" in ref;
+}
+const Html = /* @__PURE__ */ reactExports.forwardRef(({
+  children,
+  eps = 1e-3,
+  style: style2,
+  className,
+  prepend,
+  center,
+  fullscreen,
+  portal,
+  distanceFactor,
+  sprite = false,
+  transform = false,
+  occlude,
+  onOcclude,
+  castShadow,
+  receiveShadow,
+  material,
+  geometry,
+  zIndexRange = [16777271, 0],
+  calculatePosition = defaultCalculatePosition,
+  as = "div",
+  wrapperClass,
+  pointerEvents = "auto",
+  ...props
+}, ref) => {
+  const {
+    gl,
+    camera,
+    scene,
+    size,
+    raycaster,
+    events: events2,
+    viewport
+  } = useThree();
+  const [el] = reactExports.useState(() => document.createElement(as));
+  const root2 = reactExports.useRef(null);
+  const group = reactExports.useRef(null);
+  const oldZoom = reactExports.useRef(0);
+  const oldPosition = reactExports.useRef([0, 0]);
+  const transformOuterRef = reactExports.useRef(null);
+  const transformInnerRef = reactExports.useRef(null);
+  const target = (portal == null ? void 0 : portal.current) || events2.connected || gl.domElement.parentNode;
+  const occlusionMeshRef = reactExports.useRef(null);
+  const isMeshSizeSet = reactExports.useRef(false);
+  const isRayCastOcclusion = reactExports.useMemo(() => {
+    return occlude && occlude !== "blending" || Array.isArray(occlude) && occlude.length && isRefObject(occlude[0]);
+  }, [occlude]);
+  reactExports.useLayoutEffect(() => {
+    const el2 = gl.domElement;
+    if (occlude && occlude === "blending") {
+      el2.style.zIndex = `${Math.floor(zIndexRange[0] / 2)}`;
+      el2.style.position = "absolute";
+      el2.style.pointerEvents = "none";
+    } else {
+      el2.style.zIndex = null;
+      el2.style.position = null;
+      el2.style.pointerEvents = null;
+    }
+  }, [occlude]);
+  reactExports.useLayoutEffect(() => {
+    if (group.current) {
+      const currentRoot = root2.current = clientExports.createRoot(el);
+      scene.updateMatrixWorld();
+      if (transform) {
+        el.style.cssText = `position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;`;
+      } else {
+        const vec = calculatePosition(group.current, camera, size);
+        el.style.cssText = `position:absolute;top:0;left:0;transform:translate3d(${vec[0]}px,${vec[1]}px,0);transform-origin:0 0;`;
+      }
+      if (target) {
+        if (prepend) target.prepend(el);
+        else target.appendChild(el);
+      }
+      return () => {
+        if (target) target.removeChild(el);
+        currentRoot.unmount();
+      };
+    }
+  }, [target, transform]);
+  reactExports.useLayoutEffect(() => {
+    if (wrapperClass) el.className = wrapperClass;
+  }, [wrapperClass]);
+  const styles = reactExports.useMemo(() => {
+    if (transform) {
+      return {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: size.width,
+        height: size.height,
+        transformStyle: "preserve-3d",
+        pointerEvents: "none"
+      };
+    } else {
+      return {
+        position: "absolute",
+        transform: center ? "translate3d(-50%,-50%,0)" : "none",
+        ...fullscreen && {
+          top: -size.height / 2,
+          left: -size.width / 2,
+          width: size.width,
+          height: size.height
+        },
+        ...style2
+      };
+    }
+  }, [style2, center, fullscreen, size, transform]);
+  const transformInnerStyles = reactExports.useMemo(() => ({
+    position: "absolute",
+    pointerEvents
+  }), [pointerEvents]);
+  reactExports.useLayoutEffect(() => {
+    isMeshSizeSet.current = false;
+    if (transform) {
+      var _root$current;
+      (_root$current = root2.current) == null || _root$current.render(/* @__PURE__ */ reactExports.createElement("div", {
+        ref: transformOuterRef,
+        style: styles
+      }, /* @__PURE__ */ reactExports.createElement("div", {
+        ref: transformInnerRef,
+        style: transformInnerStyles
+      }, /* @__PURE__ */ reactExports.createElement("div", {
+        ref,
+        className,
+        style: style2,
+        children
+      }))));
+    } else {
+      var _root$current2;
+      (_root$current2 = root2.current) == null || _root$current2.render(/* @__PURE__ */ reactExports.createElement("div", {
+        ref,
+        style: styles,
+        className,
+        children
+      }));
+    }
+  });
+  const visible = reactExports.useRef(true);
+  useFrame((gl2) => {
+    if (group.current) {
+      camera.updateMatrixWorld();
+      group.current.updateWorldMatrix(true, false);
+      const vec = transform ? oldPosition.current : calculatePosition(group.current, camera, size);
+      if (transform || Math.abs(oldZoom.current - camera.zoom) > eps || Math.abs(oldPosition.current[0] - vec[0]) > eps || Math.abs(oldPosition.current[1] - vec[1]) > eps) {
+        const isBehindCamera = isObjectBehindCamera(group.current, camera);
+        let raytraceTarget = false;
+        if (isRayCastOcclusion) {
+          if (Array.isArray(occlude)) {
+            raytraceTarget = occlude.map((item) => item.current);
+          } else if (occlude !== "blending") {
+            raytraceTarget = [scene];
+          }
+        }
+        const previouslyVisible = visible.current;
+        if (raytraceTarget) {
+          const isvisible = isObjectVisible(group.current, camera, raycaster, raytraceTarget);
+          visible.current = isvisible && !isBehindCamera;
+        } else {
+          visible.current = !isBehindCamera;
+        }
+        if (previouslyVisible !== visible.current) {
+          if (onOcclude) onOcclude(!visible.current);
+          else el.style.display = visible.current ? "block" : "none";
+        }
+        const halfRange = Math.floor(zIndexRange[0] / 2);
+        const zRange = occlude ? isRayCastOcclusion ? [zIndexRange[0], halfRange] : [halfRange - 1, 0] : zIndexRange;
+        el.style.zIndex = `${objectZIndex(group.current, camera, zRange)}`;
+        if (transform) {
+          const [widthHalf, heightHalf] = [size.width / 2, size.height / 2];
+          const fov2 = camera.projectionMatrix.elements[5] * heightHalf;
+          const {
+            isOrthographicCamera: isOrthographicCamera2,
+            top,
+            left,
+            bottom,
+            right
+          } = camera;
+          const cameraMatrix = getCameraCSSMatrix(camera.matrixWorldInverse);
+          const cameraTransform = isOrthographicCamera2 ? `scale(${fov2})translate(${epsilon(-(right + left) / 2)}px,${epsilon((top + bottom) / 2)}px)` : `translateZ(${fov2}px)`;
+          let matrix = group.current.matrixWorld;
+          if (sprite) {
+            matrix = camera.matrixWorldInverse.clone().transpose().copyPosition(matrix).scale(group.current.scale);
+            matrix.elements[3] = matrix.elements[7] = matrix.elements[11] = 0;
+            matrix.elements[15] = 1;
+          }
+          el.style.width = size.width + "px";
+          el.style.height = size.height + "px";
+          el.style.perspective = isOrthographicCamera2 ? "" : `${fov2}px`;
+          if (transformOuterRef.current && transformInnerRef.current) {
+            transformOuterRef.current.style.transform = `${cameraTransform}${cameraMatrix}translate(${widthHalf}px,${heightHalf}px)`;
+            transformInnerRef.current.style.transform = getObjectCSSMatrix(matrix, 1 / ((distanceFactor || 10) / 400));
+          }
+        } else {
+          const scale = distanceFactor === void 0 ? 1 : objectScale(group.current, camera) * distanceFactor;
+          el.style.transform = `translate3d(${vec[0]}px,${vec[1]}px,0) scale(${scale})`;
+        }
+        oldPosition.current = vec;
+        oldZoom.current = camera.zoom;
+      }
+    }
+    if (!isRayCastOcclusion && occlusionMeshRef.current && !isMeshSizeSet.current) {
+      if (transform) {
+        if (transformOuterRef.current) {
+          const el2 = transformOuterRef.current.children[0];
+          if (el2 != null && el2.clientWidth && el2 != null && el2.clientHeight) {
+            const {
+              isOrthographicCamera: isOrthographicCamera2
+            } = camera;
+            if (isOrthographicCamera2 || geometry) {
+              if (props.scale) {
+                if (!Array.isArray(props.scale)) {
+                  occlusionMeshRef.current.scale.setScalar(1 / props.scale);
+                } else if (props.scale instanceof Vector3) {
+                  occlusionMeshRef.current.scale.copy(props.scale.clone().divideScalar(1));
+                } else {
+                  occlusionMeshRef.current.scale.set(1 / props.scale[0], 1 / props.scale[1], 1 / props.scale[2]);
+                }
+              }
+            } else {
+              const ratio = (distanceFactor || 10) / 400;
+              const w = el2.clientWidth * ratio;
+              const h2 = el2.clientHeight * ratio;
+              occlusionMeshRef.current.scale.set(w, h2, 1);
+            }
+            isMeshSizeSet.current = true;
+          }
+        }
+      } else {
+        const ele = el.children[0];
+        if (ele != null && ele.clientWidth && ele != null && ele.clientHeight) {
+          const ratio = 1 / viewport.factor;
+          const w = ele.clientWidth * ratio;
+          const h2 = ele.clientHeight * ratio;
+          occlusionMeshRef.current.scale.set(w, h2, 1);
+          isMeshSizeSet.current = true;
+        }
+        occlusionMeshRef.current.lookAt(gl2.camera.position);
+      }
+    }
+  });
+  const shaders = reactExports.useMemo(() => ({
+    vertexShader: !transform ? (
+      /* glsl */
+      `
+          /*
+            This shader is from the THREE's SpriteMaterial.
+            We need to turn the backing plane into a Sprite
+            (make it always face the camera) if "transfrom"
+            is false.
+          */
+          #include <common>
+
+          void main() {
+            vec2 center = vec2(0., 1.);
+            float rotation = 0.0;
+
+            // This is somewhat arbitrary, but it seems to work well
+            // Need to figure out how to derive this dynamically if it even matters
+            float size = 0.03;
+
+            vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );
+            vec2 scale;
+            scale.x = length( vec3( modelMatrix[ 0 ].x, modelMatrix[ 0 ].y, modelMatrix[ 0 ].z ) );
+            scale.y = length( vec3( modelMatrix[ 1 ].x, modelMatrix[ 1 ].y, modelMatrix[ 1 ].z ) );
+
+            bool isPerspective = isPerspectiveMatrix( projectionMatrix );
+            if ( isPerspective ) scale *= - mvPosition.z;
+
+            vec2 alignedPosition = ( position.xy - ( center - vec2( 0.5 ) ) ) * scale * size;
+            vec2 rotatedPosition;
+            rotatedPosition.x = cos( rotation ) * alignedPosition.x - sin( rotation ) * alignedPosition.y;
+            rotatedPosition.y = sin( rotation ) * alignedPosition.x + cos( rotation ) * alignedPosition.y;
+            mvPosition.xy += rotatedPosition;
+
+            gl_Position = projectionMatrix * mvPosition;
+          }
+      `
+    ) : void 0,
+    fragmentShader: (
+      /* glsl */
+      `
+        void main() {
+          gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        }
+      `
+    )
+  }), [transform]);
+  return /* @__PURE__ */ reactExports.createElement("group", _extends({}, props, {
+    ref: group
+  }), occlude && !isRayCastOcclusion && /* @__PURE__ */ reactExports.createElement("mesh", {
+    castShadow,
+    receiveShadow,
+    ref: occlusionMeshRef
+  }, geometry || /* @__PURE__ */ reactExports.createElement("planeGeometry", null), material || /* @__PURE__ */ reactExports.createElement("shaderMaterial", {
+    side: DoubleSide,
+    vertexShader: shaders.vertexShader,
+    fragmentShader: shaders.fragmentShader
+  })));
+});
+const version$1 = /* @__PURE__ */ (() => parseInt(REVISION.replace(/\D+/g, "")))();
+const UV1 = version$1 >= 125 ? "uv1" : "uv2";
+const _box$1 = /* @__PURE__ */ new Box3();
+const _vector = /* @__PURE__ */ new Vector3();
+class LineSegmentsGeometry extends InstancedBufferGeometry {
+  constructor() {
+    super();
+    this.isLineSegmentsGeometry = true;
+    this.type = "LineSegmentsGeometry";
+    const positions = [-1, 2, 0, 1, 2, 0, -1, 1, 0, 1, 1, 0, -1, 0, 0, 1, 0, 0, -1, -1, 0, 1, -1, 0];
+    const uvs = [-1, 2, 1, 2, -1, 1, 1, 1, -1, -1, 1, -1, -1, -2, 1, -2];
+    const index2 = [0, 2, 1, 2, 3, 1, 2, 4, 3, 4, 5, 3, 4, 6, 5, 6, 7, 5];
+    this.setIndex(index2);
+    this.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  }
+  applyMatrix4(matrix) {
+    const start = this.attributes.instanceStart;
+    const end = this.attributes.instanceEnd;
+    if (start !== void 0) {
+      start.applyMatrix4(matrix);
+      end.applyMatrix4(matrix);
+      start.needsUpdate = true;
+    }
+    if (this.boundingBox !== null) {
+      this.computeBoundingBox();
+    }
+    if (this.boundingSphere !== null) {
+      this.computeBoundingSphere();
+    }
+    return this;
+  }
+  setPositions(array) {
+    let lineSegments;
+    if (array instanceof Float32Array) {
+      lineSegments = array;
+    } else if (Array.isArray(array)) {
+      lineSegments = new Float32Array(array);
+    }
+    const instanceBuffer = new InstancedInterleavedBuffer(lineSegments, 6, 1);
+    this.setAttribute("instanceStart", new InterleavedBufferAttribute(instanceBuffer, 3, 0));
+    this.setAttribute("instanceEnd", new InterleavedBufferAttribute(instanceBuffer, 3, 3));
+    this.computeBoundingBox();
+    this.computeBoundingSphere();
+    return this;
+  }
+  setColors(array, itemSize = 3) {
+    let colors;
+    if (array instanceof Float32Array) {
+      colors = array;
+    } else if (Array.isArray(array)) {
+      colors = new Float32Array(array);
+    }
+    const instanceColorBuffer = new InstancedInterleavedBuffer(colors, itemSize * 2, 1);
+    this.setAttribute("instanceColorStart", new InterleavedBufferAttribute(instanceColorBuffer, itemSize, 0));
+    this.setAttribute("instanceColorEnd", new InterleavedBufferAttribute(instanceColorBuffer, itemSize, itemSize));
+    return this;
+  }
+  fromWireframeGeometry(geometry) {
+    this.setPositions(geometry.attributes.position.array);
+    return this;
+  }
+  fromEdgesGeometry(geometry) {
+    this.setPositions(geometry.attributes.position.array);
+    return this;
+  }
+  fromMesh(mesh) {
+    this.fromWireframeGeometry(new WireframeGeometry(mesh.geometry));
+    return this;
+  }
+  fromLineSegments(lineSegments) {
+    const geometry = lineSegments.geometry;
+    this.setPositions(geometry.attributes.position.array);
+    return this;
+  }
+  computeBoundingBox() {
+    if (this.boundingBox === null) {
+      this.boundingBox = new Box3();
+    }
+    const start = this.attributes.instanceStart;
+    const end = this.attributes.instanceEnd;
+    if (start !== void 0 && end !== void 0) {
+      this.boundingBox.setFromBufferAttribute(start);
+      _box$1.setFromBufferAttribute(end);
+      this.boundingBox.union(_box$1);
+    }
+  }
+  computeBoundingSphere() {
+    if (this.boundingSphere === null) {
+      this.boundingSphere = new Sphere();
+    }
+    if (this.boundingBox === null) {
+      this.computeBoundingBox();
+    }
+    const start = this.attributes.instanceStart;
+    const end = this.attributes.instanceEnd;
+    if (start !== void 0 && end !== void 0) {
+      const center = this.boundingSphere.center;
+      this.boundingBox.getCenter(center);
+      let maxRadiusSq = 0;
+      for (let i2 = 0, il = start.count; i2 < il; i2++) {
+        _vector.fromBufferAttribute(start, i2);
+        maxRadiusSq = Math.max(maxRadiusSq, center.distanceToSquared(_vector));
+        _vector.fromBufferAttribute(end, i2);
+        maxRadiusSq = Math.max(maxRadiusSq, center.distanceToSquared(_vector));
+      }
+      this.boundingSphere.radius = Math.sqrt(maxRadiusSq);
+      if (isNaN(this.boundingSphere.radius)) {
+        console.error(
+          "THREE.LineSegmentsGeometry.computeBoundingSphere(): Computed radius is NaN. The instanced position data is likely to have NaN values.",
+          this
+        );
+      }
+    }
+  }
+  toJSON() {
+  }
+  applyMatrix(matrix) {
+    console.warn("THREE.LineSegmentsGeometry: applyMatrix() has been renamed to applyMatrix4().");
+    return this.applyMatrix4(matrix);
+  }
+}
+class LineGeometry extends LineSegmentsGeometry {
+  constructor() {
+    super();
+    this.isLineGeometry = true;
+    this.type = "LineGeometry";
+  }
+  setPositions(array) {
+    const length = array.length - 3;
+    const points = new Float32Array(2 * length);
+    for (let i2 = 0; i2 < length; i2 += 3) {
+      points[2 * i2] = array[i2];
+      points[2 * i2 + 1] = array[i2 + 1];
+      points[2 * i2 + 2] = array[i2 + 2];
+      points[2 * i2 + 3] = array[i2 + 3];
+      points[2 * i2 + 4] = array[i2 + 4];
+      points[2 * i2 + 5] = array[i2 + 5];
+    }
+    super.setPositions(points);
+    return this;
+  }
+  setColors(array, itemSize = 3) {
+    const length = array.length - itemSize;
+    const colors = new Float32Array(2 * length);
+    if (itemSize === 3) {
+      for (let i2 = 0; i2 < length; i2 += itemSize) {
+        colors[2 * i2] = array[i2];
+        colors[2 * i2 + 1] = array[i2 + 1];
+        colors[2 * i2 + 2] = array[i2 + 2];
+        colors[2 * i2 + 3] = array[i2 + 3];
+        colors[2 * i2 + 4] = array[i2 + 4];
+        colors[2 * i2 + 5] = array[i2 + 5];
+      }
+    } else {
+      for (let i2 = 0; i2 < length; i2 += itemSize) {
+        colors[2 * i2] = array[i2];
+        colors[2 * i2 + 1] = array[i2 + 1];
+        colors[2 * i2 + 2] = array[i2 + 2];
+        colors[2 * i2 + 3] = array[i2 + 3];
+        colors[2 * i2 + 4] = array[i2 + 4];
+        colors[2 * i2 + 5] = array[i2 + 5];
+        colors[2 * i2 + 6] = array[i2 + 6];
+        colors[2 * i2 + 7] = array[i2 + 7];
+      }
+    }
+    super.setColors(colors, itemSize);
+    return this;
+  }
+  fromLine(line) {
+    const geometry = line.geometry;
+    this.setPositions(geometry.attributes.position.array);
+    return this;
+  }
+}
+class LineMaterial extends ShaderMaterial {
+  constructor(parameters) {
+    super({
+      type: "LineMaterial",
+      uniforms: UniformsUtils.clone(
+        UniformsUtils.merge([
+          UniformsLib.common,
+          UniformsLib.fog,
+          {
+            worldUnits: { value: 1 },
+            linewidth: { value: 1 },
+            resolution: { value: new Vector2(1, 1) },
+            dashOffset: { value: 0 },
+            dashScale: { value: 1 },
+            dashSize: { value: 1 },
+            gapSize: { value: 1 }
+            // todo FIX - maybe change to totalSize
+          }
+        ])
+      ),
+      vertexShader: (
+        /* glsl */
+        `
+				#include <common>
+				#include <fog_pars_vertex>
+				#include <logdepthbuf_pars_vertex>
+				#include <clipping_planes_pars_vertex>
+
+				uniform float linewidth;
+				uniform vec2 resolution;
+
+				attribute vec3 instanceStart;
+				attribute vec3 instanceEnd;
+
+				#ifdef USE_COLOR
+					#ifdef USE_LINE_COLOR_ALPHA
+						varying vec4 vLineColor;
+						attribute vec4 instanceColorStart;
+						attribute vec4 instanceColorEnd;
+					#else
+						varying vec3 vLineColor;
+						attribute vec3 instanceColorStart;
+						attribute vec3 instanceColorEnd;
+					#endif
+				#endif
+
+				#ifdef WORLD_UNITS
+
+					varying vec4 worldPos;
+					varying vec3 worldStart;
+					varying vec3 worldEnd;
+
+					#ifdef USE_DASH
+
+						varying vec2 vUv;
+
+					#endif
+
+				#else
+
+					varying vec2 vUv;
+
+				#endif
+
+				#ifdef USE_DASH
+
+					uniform float dashScale;
+					attribute float instanceDistanceStart;
+					attribute float instanceDistanceEnd;
+					varying float vLineDistance;
+
+				#endif
+
+				void trimSegment( const in vec4 start, inout vec4 end ) {
+
+					// trim end segment so it terminates between the camera plane and the near plane
+
+					// conservative estimate of the near plane
+					float a = projectionMatrix[ 2 ][ 2 ]; // 3nd entry in 3th column
+					float b = projectionMatrix[ 3 ][ 2 ]; // 3nd entry in 4th column
+					float nearEstimate = - 0.5 * b / a;
+
+					float alpha = ( nearEstimate - start.z ) / ( end.z - start.z );
+
+					end.xyz = mix( start.xyz, end.xyz, alpha );
+
+				}
+
+				void main() {
+
+					#ifdef USE_COLOR
+
+						vLineColor = ( position.y < 0.5 ) ? instanceColorStart : instanceColorEnd;
+
+					#endif
+
+					#ifdef USE_DASH
+
+						vLineDistance = ( position.y < 0.5 ) ? dashScale * instanceDistanceStart : dashScale * instanceDistanceEnd;
+						vUv = uv;
+
+					#endif
+
+					float aspect = resolution.x / resolution.y;
+
+					// camera space
+					vec4 start = modelViewMatrix * vec4( instanceStart, 1.0 );
+					vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );
+
+					#ifdef WORLD_UNITS
+
+						worldStart = start.xyz;
+						worldEnd = end.xyz;
+
+					#else
+
+						vUv = uv;
+
+					#endif
+
+					// special case for perspective projection, and segments that terminate either in, or behind, the camera plane
+					// clearly the gpu firmware has a way of addressing this issue when projecting into ndc space
+					// but we need to perform ndc-space calculations in the shader, so we must address this issue directly
+					// perhaps there is a more elegant solution -- WestLangley
+
+					bool perspective = ( projectionMatrix[ 2 ][ 3 ] == - 1.0 ); // 4th entry in the 3rd column
+
+					if ( perspective ) {
+
+						if ( start.z < 0.0 && end.z >= 0.0 ) {
+
+							trimSegment( start, end );
+
+						} else if ( end.z < 0.0 && start.z >= 0.0 ) {
+
+							trimSegment( end, start );
+
+						}
+
+					}
+
+					// clip space
+					vec4 clipStart = projectionMatrix * start;
+					vec4 clipEnd = projectionMatrix * end;
+
+					// ndc space
+					vec3 ndcStart = clipStart.xyz / clipStart.w;
+					vec3 ndcEnd = clipEnd.xyz / clipEnd.w;
+
+					// direction
+					vec2 dir = ndcEnd.xy - ndcStart.xy;
+
+					// account for clip-space aspect ratio
+					dir.x *= aspect;
+					dir = normalize( dir );
+
+					#ifdef WORLD_UNITS
+
+						// get the offset direction as perpendicular to the view vector
+						vec3 worldDir = normalize( end.xyz - start.xyz );
+						vec3 offset;
+						if ( position.y < 0.5 ) {
+
+							offset = normalize( cross( start.xyz, worldDir ) );
+
+						} else {
+
+							offset = normalize( cross( end.xyz, worldDir ) );
+
+						}
+
+						// sign flip
+						if ( position.x < 0.0 ) offset *= - 1.0;
+
+						float forwardOffset = dot( worldDir, vec3( 0.0, 0.0, 1.0 ) );
+
+						// don't extend the line if we're rendering dashes because we
+						// won't be rendering the endcaps
+						#ifndef USE_DASH
+
+							// extend the line bounds to encompass  endcaps
+							start.xyz += - worldDir * linewidth * 0.5;
+							end.xyz += worldDir * linewidth * 0.5;
+
+							// shift the position of the quad so it hugs the forward edge of the line
+							offset.xy -= dir * forwardOffset;
+							offset.z += 0.5;
+
+						#endif
+
+						// endcaps
+						if ( position.y > 1.0 || position.y < 0.0 ) {
+
+							offset.xy += dir * 2.0 * forwardOffset;
+
+						}
+
+						// adjust for linewidth
+						offset *= linewidth * 0.5;
+
+						// set the world position
+						worldPos = ( position.y < 0.5 ) ? start : end;
+						worldPos.xyz += offset;
+
+						// project the worldpos
+						vec4 clip = projectionMatrix * worldPos;
+
+						// shift the depth of the projected points so the line
+						// segments overlap neatly
+						vec3 clipPose = ( position.y < 0.5 ) ? ndcStart : ndcEnd;
+						clip.z = clipPose.z * clip.w;
+
+					#else
+
+						vec2 offset = vec2( dir.y, - dir.x );
+						// undo aspect ratio adjustment
+						dir.x /= aspect;
+						offset.x /= aspect;
+
+						// sign flip
+						if ( position.x < 0.0 ) offset *= - 1.0;
+
+						// endcaps
+						if ( position.y < 0.0 ) {
+
+							offset += - dir;
+
+						} else if ( position.y > 1.0 ) {
+
+							offset += dir;
+
+						}
+
+						// adjust for linewidth
+						offset *= linewidth;
+
+						// adjust for clip-space to screen-space conversion // maybe resolution should be based on viewport ...
+						offset /= resolution.y;
+
+						// select end
+						vec4 clip = ( position.y < 0.5 ) ? clipStart : clipEnd;
+
+						// back to clip space
+						offset *= clip.w;
+
+						clip.xy += offset;
+
+					#endif
+
+					gl_Position = clip;
+
+					vec4 mvPosition = ( position.y < 0.5 ) ? start : end; // this is an approximation
+
+					#include <logdepthbuf_vertex>
+					#include <clipping_planes_vertex>
+					#include <fog_vertex>
+
+				}
+			`
+      ),
+      fragmentShader: (
+        /* glsl */
+        `
+				uniform vec3 diffuse;
+				uniform float opacity;
+				uniform float linewidth;
+
+				#ifdef USE_DASH
+
+					uniform float dashOffset;
+					uniform float dashSize;
+					uniform float gapSize;
+
+				#endif
+
+				varying float vLineDistance;
+
+				#ifdef WORLD_UNITS
+
+					varying vec4 worldPos;
+					varying vec3 worldStart;
+					varying vec3 worldEnd;
+
+					#ifdef USE_DASH
+
+						varying vec2 vUv;
+
+					#endif
+
+				#else
+
+					varying vec2 vUv;
+
+				#endif
+
+				#include <common>
+				#include <fog_pars_fragment>
+				#include <logdepthbuf_pars_fragment>
+				#include <clipping_planes_pars_fragment>
+
+				#ifdef USE_COLOR
+					#ifdef USE_LINE_COLOR_ALPHA
+						varying vec4 vLineColor;
+					#else
+						varying vec3 vLineColor;
+					#endif
+				#endif
+
+				vec2 closestLineToLine(vec3 p1, vec3 p2, vec3 p3, vec3 p4) {
+
+					float mua;
+					float mub;
+
+					vec3 p13 = p1 - p3;
+					vec3 p43 = p4 - p3;
+
+					vec3 p21 = p2 - p1;
+
+					float d1343 = dot( p13, p43 );
+					float d4321 = dot( p43, p21 );
+					float d1321 = dot( p13, p21 );
+					float d4343 = dot( p43, p43 );
+					float d2121 = dot( p21, p21 );
+
+					float denom = d2121 * d4343 - d4321 * d4321;
+
+					float numer = d1343 * d4321 - d1321 * d4343;
+
+					mua = numer / denom;
+					mua = clamp( mua, 0.0, 1.0 );
+					mub = ( d1343 + d4321 * ( mua ) ) / d4343;
+					mub = clamp( mub, 0.0, 1.0 );
+
+					return vec2( mua, mub );
+
+				}
+
+				void main() {
+
+					#include <clipping_planes_fragment>
+
+					#ifdef USE_DASH
+
+						if ( vUv.y < - 1.0 || vUv.y > 1.0 ) discard; // discard endcaps
+
+						if ( mod( vLineDistance + dashOffset, dashSize + gapSize ) > dashSize ) discard; // todo - FIX
+
+					#endif
+
+					float alpha = opacity;
+
+					#ifdef WORLD_UNITS
+
+						// Find the closest points on the view ray and the line segment
+						vec3 rayEnd = normalize( worldPos.xyz ) * 1e5;
+						vec3 lineDir = worldEnd - worldStart;
+						vec2 params = closestLineToLine( worldStart, worldEnd, vec3( 0.0, 0.0, 0.0 ), rayEnd );
+
+						vec3 p1 = worldStart + lineDir * params.x;
+						vec3 p2 = rayEnd * params.y;
+						vec3 delta = p1 - p2;
+						float len = length( delta );
+						float norm = len / linewidth;
+
+						#ifndef USE_DASH
+
+							#ifdef USE_ALPHA_TO_COVERAGE
+
+								float dnorm = fwidth( norm );
+								alpha = 1.0 - smoothstep( 0.5 - dnorm, 0.5 + dnorm, norm );
+
+							#else
+
+								if ( norm > 0.5 ) {
+
+									discard;
+
+								}
+
+							#endif
+
+						#endif
+
+					#else
+
+						#ifdef USE_ALPHA_TO_COVERAGE
+
+							// artifacts appear on some hardware if a derivative is taken within a conditional
+							float a = vUv.x;
+							float b = ( vUv.y > 0.0 ) ? vUv.y - 1.0 : vUv.y + 1.0;
+							float len2 = a * a + b * b;
+							float dlen = fwidth( len2 );
+
+							if ( abs( vUv.y ) > 1.0 ) {
+
+								alpha = 1.0 - smoothstep( 1.0 - dlen, 1.0 + dlen, len2 );
+
+							}
+
+						#else
+
+							if ( abs( vUv.y ) > 1.0 ) {
+
+								float a = vUv.x;
+								float b = ( vUv.y > 0.0 ) ? vUv.y - 1.0 : vUv.y + 1.0;
+								float len2 = a * a + b * b;
+
+								if ( len2 > 1.0 ) discard;
+
+							}
+
+						#endif
+
+					#endif
+
+					vec4 diffuseColor = vec4( diffuse, alpha );
+					#ifdef USE_COLOR
+						#ifdef USE_LINE_COLOR_ALPHA
+							diffuseColor *= vLineColor;
+						#else
+							diffuseColor.rgb *= vLineColor;
+						#endif
+					#endif
+
+					#include <logdepthbuf_fragment>
+
+					gl_FragColor = diffuseColor;
+
+					#include <tonemapping_fragment>
+					#include <${version$1 >= 154 ? "colorspace_fragment" : "encodings_fragment"}>
+					#include <fog_fragment>
+					#include <premultiplied_alpha_fragment>
+
+				}
+			`
+      ),
+      clipping: true
+      // required for clipping support
+    });
+    this.isLineMaterial = true;
+    this.onBeforeCompile = function() {
+      if (this.transparent) {
+        this.defines.USE_LINE_COLOR_ALPHA = "1";
+      } else {
+        delete this.defines.USE_LINE_COLOR_ALPHA;
+      }
+    };
+    Object.defineProperties(this, {
+      color: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.diffuse.value;
+        },
+        set: function(value) {
+          this.uniforms.diffuse.value = value;
+        }
+      },
+      worldUnits: {
+        enumerable: true,
+        get: function() {
+          return "WORLD_UNITS" in this.defines;
+        },
+        set: function(value) {
+          if (value === true) {
+            this.defines.WORLD_UNITS = "";
+          } else {
+            delete this.defines.WORLD_UNITS;
+          }
+        }
+      },
+      linewidth: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.linewidth.value;
+        },
+        set: function(value) {
+          this.uniforms.linewidth.value = value;
+        }
+      },
+      dashed: {
+        enumerable: true,
+        get: function() {
+          return Boolean("USE_DASH" in this.defines);
+        },
+        set(value) {
+          if (Boolean(value) !== Boolean("USE_DASH" in this.defines)) {
+            this.needsUpdate = true;
+          }
+          if (value === true) {
+            this.defines.USE_DASH = "";
+          } else {
+            delete this.defines.USE_DASH;
+          }
+        }
+      },
+      dashScale: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.dashScale.value;
+        },
+        set: function(value) {
+          this.uniforms.dashScale.value = value;
+        }
+      },
+      dashSize: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.dashSize.value;
+        },
+        set: function(value) {
+          this.uniforms.dashSize.value = value;
+        }
+      },
+      dashOffset: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.dashOffset.value;
+        },
+        set: function(value) {
+          this.uniforms.dashOffset.value = value;
+        }
+      },
+      gapSize: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.gapSize.value;
+        },
+        set: function(value) {
+          this.uniforms.gapSize.value = value;
+        }
+      },
+      opacity: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.opacity.value;
+        },
+        set: function(value) {
+          this.uniforms.opacity.value = value;
+        }
+      },
+      resolution: {
+        enumerable: true,
+        get: function() {
+          return this.uniforms.resolution.value;
+        },
+        set: function(value) {
+          this.uniforms.resolution.value.copy(value);
+        }
+      },
+      alphaToCoverage: {
+        enumerable: true,
+        get: function() {
+          return Boolean("USE_ALPHA_TO_COVERAGE" in this.defines);
+        },
+        set: function(value) {
+          if (Boolean(value) !== Boolean("USE_ALPHA_TO_COVERAGE" in this.defines)) {
+            this.needsUpdate = true;
+          }
+          if (value === true) {
+            this.defines.USE_ALPHA_TO_COVERAGE = "";
+            this.extensions.derivatives = true;
+          } else {
+            delete this.defines.USE_ALPHA_TO_COVERAGE;
+            this.extensions.derivatives = false;
+          }
+        }
+      }
+    });
+    this.setValues(parameters);
+  }
+}
+const _viewport = /* @__PURE__ */ new Vector4();
+const _start = /* @__PURE__ */ new Vector3();
+const _end = /* @__PURE__ */ new Vector3();
+const _start4 = /* @__PURE__ */ new Vector4();
+const _end4 = /* @__PURE__ */ new Vector4();
+const _ssOrigin = /* @__PURE__ */ new Vector4();
+const _ssOrigin3 = /* @__PURE__ */ new Vector3();
+const _mvMatrix = /* @__PURE__ */ new Matrix4();
+const _line = /* @__PURE__ */ new Line3();
+const _closestPoint = /* @__PURE__ */ new Vector3();
+const _box = /* @__PURE__ */ new Box3();
+const _sphere = /* @__PURE__ */ new Sphere();
+const _clipToWorldVector = /* @__PURE__ */ new Vector4();
+let _ray, _lineWidth;
+function getWorldSpaceHalfWidth(camera, distance, resolution) {
+  _clipToWorldVector.set(0, 0, -distance, 1).applyMatrix4(camera.projectionMatrix);
+  _clipToWorldVector.multiplyScalar(1 / _clipToWorldVector.w);
+  _clipToWorldVector.x = _lineWidth / resolution.width;
+  _clipToWorldVector.y = _lineWidth / resolution.height;
+  _clipToWorldVector.applyMatrix4(camera.projectionMatrixInverse);
+  _clipToWorldVector.multiplyScalar(1 / _clipToWorldVector.w);
+  return Math.abs(Math.max(_clipToWorldVector.x, _clipToWorldVector.y));
+}
+function raycastWorldUnits(lineSegments, intersects2) {
+  const matrixWorld = lineSegments.matrixWorld;
+  const geometry = lineSegments.geometry;
+  const instanceStart = geometry.attributes.instanceStart;
+  const instanceEnd = geometry.attributes.instanceEnd;
+  const segmentCount = Math.min(geometry.instanceCount, instanceStart.count);
+  for (let i2 = 0, l2 = segmentCount; i2 < l2; i2++) {
+    _line.start.fromBufferAttribute(instanceStart, i2);
+    _line.end.fromBufferAttribute(instanceEnd, i2);
+    _line.applyMatrix4(matrixWorld);
+    const pointOnLine = new Vector3();
+    const point = new Vector3();
+    _ray.distanceSqToSegment(_line.start, _line.end, point, pointOnLine);
+    const isInside = point.distanceTo(pointOnLine) < _lineWidth * 0.5;
+    if (isInside) {
+      intersects2.push({
+        point,
+        pointOnLine,
+        distance: _ray.origin.distanceTo(point),
+        object: lineSegments,
+        face: null,
+        faceIndex: i2,
+        uv: null,
+        [UV1]: null
+      });
+    }
+  }
+}
+function raycastScreenSpace(lineSegments, camera, intersects2) {
+  const projectionMatrix = camera.projectionMatrix;
+  const material = lineSegments.material;
+  const resolution = material.resolution;
+  const matrixWorld = lineSegments.matrixWorld;
+  const geometry = lineSegments.geometry;
+  const instanceStart = geometry.attributes.instanceStart;
+  const instanceEnd = geometry.attributes.instanceEnd;
+  const segmentCount = Math.min(geometry.instanceCount, instanceStart.count);
+  const near = -camera.near;
+  _ray.at(1, _ssOrigin);
+  _ssOrigin.w = 1;
+  _ssOrigin.applyMatrix4(camera.matrixWorldInverse);
+  _ssOrigin.applyMatrix4(projectionMatrix);
+  _ssOrigin.multiplyScalar(1 / _ssOrigin.w);
+  _ssOrigin.x *= resolution.x / 2;
+  _ssOrigin.y *= resolution.y / 2;
+  _ssOrigin.z = 0;
+  _ssOrigin3.copy(_ssOrigin);
+  _mvMatrix.multiplyMatrices(camera.matrixWorldInverse, matrixWorld);
+  for (let i2 = 0, l2 = segmentCount; i2 < l2; i2++) {
+    _start4.fromBufferAttribute(instanceStart, i2);
+    _end4.fromBufferAttribute(instanceEnd, i2);
+    _start4.w = 1;
+    _end4.w = 1;
+    _start4.applyMatrix4(_mvMatrix);
+    _end4.applyMatrix4(_mvMatrix);
+    const isBehindCameraNear = _start4.z > near && _end4.z > near;
+    if (isBehindCameraNear) {
+      continue;
+    }
+    if (_start4.z > near) {
+      const deltaDist = _start4.z - _end4.z;
+      const t = (_start4.z - near) / deltaDist;
+      _start4.lerp(_end4, t);
+    } else if (_end4.z > near) {
+      const deltaDist = _end4.z - _start4.z;
+      const t = (_end4.z - near) / deltaDist;
+      _end4.lerp(_start4, t);
+    }
+    _start4.applyMatrix4(projectionMatrix);
+    _end4.applyMatrix4(projectionMatrix);
+    _start4.multiplyScalar(1 / _start4.w);
+    _end4.multiplyScalar(1 / _end4.w);
+    _start4.x *= resolution.x / 2;
+    _start4.y *= resolution.y / 2;
+    _end4.x *= resolution.x / 2;
+    _end4.y *= resolution.y / 2;
+    _line.start.copy(_start4);
+    _line.start.z = 0;
+    _line.end.copy(_end4);
+    _line.end.z = 0;
+    const param = _line.closestPointToPointParameter(_ssOrigin3, true);
+    _line.at(param, _closestPoint);
+    const zPos = MathUtils.lerp(_start4.z, _end4.z, param);
+    const isInClipSpace = zPos >= -1 && zPos <= 1;
+    const isInside = _ssOrigin3.distanceTo(_closestPoint) < _lineWidth * 0.5;
+    if (isInClipSpace && isInside) {
+      _line.start.fromBufferAttribute(instanceStart, i2);
+      _line.end.fromBufferAttribute(instanceEnd, i2);
+      _line.start.applyMatrix4(matrixWorld);
+      _line.end.applyMatrix4(matrixWorld);
+      const pointOnLine = new Vector3();
+      const point = new Vector3();
+      _ray.distanceSqToSegment(_line.start, _line.end, point, pointOnLine);
+      intersects2.push({
+        point,
+        pointOnLine,
+        distance: _ray.origin.distanceTo(point),
+        object: lineSegments,
+        face: null,
+        faceIndex: i2,
+        uv: null,
+        [UV1]: null
+      });
+    }
+  }
+}
+class LineSegments2 extends Mesh {
+  constructor(geometry = new LineSegmentsGeometry(), material = new LineMaterial({ color: Math.random() * 16777215 })) {
+    super(geometry, material);
+    this.isLineSegments2 = true;
+    this.type = "LineSegments2";
+  }
+  // for backwards-compatibility, but could be a method of LineSegmentsGeometry...
+  computeLineDistances() {
+    const geometry = this.geometry;
+    const instanceStart = geometry.attributes.instanceStart;
+    const instanceEnd = geometry.attributes.instanceEnd;
+    const lineDistances = new Float32Array(2 * instanceStart.count);
+    for (let i2 = 0, j2 = 0, l2 = instanceStart.count; i2 < l2; i2++, j2 += 2) {
+      _start.fromBufferAttribute(instanceStart, i2);
+      _end.fromBufferAttribute(instanceEnd, i2);
+      lineDistances[j2] = j2 === 0 ? 0 : lineDistances[j2 - 1];
+      lineDistances[j2 + 1] = lineDistances[j2] + _start.distanceTo(_end);
+    }
+    const instanceDistanceBuffer = new InstancedInterleavedBuffer(lineDistances, 2, 1);
+    geometry.setAttribute("instanceDistanceStart", new InterleavedBufferAttribute(instanceDistanceBuffer, 1, 0));
+    geometry.setAttribute("instanceDistanceEnd", new InterleavedBufferAttribute(instanceDistanceBuffer, 1, 1));
+    return this;
+  }
+  raycast(raycaster, intersects2) {
+    const worldUnits = this.material.worldUnits;
+    const camera = raycaster.camera;
+    if (camera === null && !worldUnits) {
+      console.error(
+        'LineSegments2: "Raycaster.camera" needs to be set in order to raycast against LineSegments2 while worldUnits is set to false.'
+      );
+    }
+    const threshold = raycaster.params.Line2 !== void 0 ? raycaster.params.Line2.threshold || 0 : 0;
+    _ray = raycaster.ray;
+    const matrixWorld = this.matrixWorld;
+    const geometry = this.geometry;
+    const material = this.material;
+    _lineWidth = material.linewidth + threshold;
+    if (geometry.boundingSphere === null) {
+      geometry.computeBoundingSphere();
+    }
+    _sphere.copy(geometry.boundingSphere).applyMatrix4(matrixWorld);
+    let sphereMargin;
+    if (worldUnits) {
+      sphereMargin = _lineWidth * 0.5;
+    } else {
+      const distanceToSphere = Math.max(camera.near, _sphere.distanceToPoint(_ray.origin));
+      sphereMargin = getWorldSpaceHalfWidth(camera, distanceToSphere, material.resolution);
+    }
+    _sphere.radius += sphereMargin;
+    if (_ray.intersectsSphere(_sphere) === false) {
+      return;
+    }
+    if (geometry.boundingBox === null) {
+      geometry.computeBoundingBox();
+    }
+    _box.copy(geometry.boundingBox).applyMatrix4(matrixWorld);
+    let boxMargin;
+    if (worldUnits) {
+      boxMargin = _lineWidth * 0.5;
+    } else {
+      const distanceToBox = Math.max(camera.near, _box.distanceToPoint(_ray.origin));
+      boxMargin = getWorldSpaceHalfWidth(camera, distanceToBox, material.resolution);
+    }
+    _box.expandByScalar(boxMargin);
+    if (_ray.intersectsBox(_box) === false) {
+      return;
+    }
+    if (worldUnits) {
+      raycastWorldUnits(this, intersects2);
+    } else {
+      raycastScreenSpace(this, camera, intersects2);
+    }
+  }
+  onBeforeRender(renderer) {
+    const uniforms = this.material.uniforms;
+    if (uniforms && uniforms.resolution) {
+      renderer.getViewport(_viewport);
+      this.material.uniforms.resolution.value.set(_viewport.z, _viewport.w);
+    }
+  }
+}
+class Line2 extends LineSegments2 {
+  constructor(geometry = new LineGeometry(), material = new LineMaterial({ color: Math.random() * 16777215 })) {
+    super(geometry, material);
+    this.isLine2 = true;
+    this.type = "Line2";
+  }
+}
+const Line4 = /* @__PURE__ */ reactExports.forwardRef(function Line5({
+  points,
+  color = 16777215,
+  vertexColors,
+  linewidth,
+  lineWidth,
+  segments,
+  dashed,
+  ...rest
+}, ref) {
+  var _vertexColors$, _ref;
+  const size = useThree((state2) => state2.size);
+  const line2 = reactExports.useMemo(() => segments ? new LineSegments2() : new Line2(), [segments]);
+  const [lineMaterial] = reactExports.useState(() => new LineMaterial());
+  const itemSize = (vertexColors == null || (_vertexColors$ = vertexColors[0]) == null ? void 0 : _vertexColors$.length) === 4 ? 4 : 3;
+  const lineGeom = reactExports.useMemo(() => {
+    const geom = segments ? new LineSegmentsGeometry() : new LineGeometry();
+    const pValues = points.map((p2) => {
+      const isArray = Array.isArray(p2);
+      return p2 instanceof Vector3 || p2 instanceof Vector4 ? [p2.x, p2.y, p2.z] : p2 instanceof Vector2 ? [p2.x, p2.y, 0] : isArray && p2.length === 3 ? [p2[0], p2[1], p2[2]] : isArray && p2.length === 2 ? [p2[0], p2[1], 0] : p2;
+    });
+    geom.setPositions(pValues.flat());
+    if (vertexColors) {
+      color = 16777215;
+      const cValues = vertexColors.map((c2) => c2 instanceof Color ? c2.toArray() : c2);
+      geom.setColors(cValues.flat(), itemSize);
+    }
+    return geom;
+  }, [points, segments, vertexColors, itemSize]);
+  reactExports.useLayoutEffect(() => {
+    line2.computeLineDistances();
+  }, [points, line2]);
+  reactExports.useLayoutEffect(() => {
+    if (dashed) {
+      lineMaterial.defines.USE_DASH = "";
+    } else {
+      delete lineMaterial.defines.USE_DASH;
+    }
+    lineMaterial.needsUpdate = true;
+  }, [dashed, lineMaterial]);
+  reactExports.useEffect(() => {
+    return () => {
+      lineGeom.dispose();
+      lineMaterial.dispose();
+    };
+  }, [lineGeom]);
+  return /* @__PURE__ */ reactExports.createElement("primitive", _extends({
+    object: line2,
+    ref
+  }, rest), /* @__PURE__ */ reactExports.createElement("primitive", {
+    object: lineGeom,
+    attach: "geometry"
+  }), /* @__PURE__ */ reactExports.createElement("primitive", _extends({
+    object: lineMaterial,
+    attach: "material",
+    color,
+    vertexColors: Boolean(vertexColors),
+    resolution: [size.width, size.height],
+    linewidth: (_ref = linewidth !== null && linewidth !== void 0 ? linewidth : lineWidth) !== null && _ref !== void 0 ? _ref : 1,
+    dashed,
+    transparent: itemSize === 4
+  }, rest)));
+});
+const IsObject = (url) => url === Object(url) && !Array.isArray(url) && typeof url !== "function";
+function useTexture(input, onLoad) {
+  const gl = useThree((state2) => state2.gl);
+  const textures = useLoader(TextureLoader, IsObject(input) ? Object.values(input) : input);
+  reactExports.useLayoutEffect(() => {
+    onLoad == null || onLoad(textures);
+  }, [onLoad]);
+  reactExports.useEffect(() => {
+    if ("initTexture" in gl) {
+      let textureArray = [];
+      if (Array.isArray(textures)) {
+        textureArray = textures;
+      } else if (textures instanceof Texture) {
+        textureArray = [textures];
+      } else if (IsObject(textures)) {
+        textureArray = Object.values(textures);
+      }
+      textureArray.forEach((texture) => {
+        if (texture instanceof Texture) {
+          gl.initTexture(texture);
+        }
+      });
+    }
+  }, [gl, textures]);
+  const mappedTextures = reactExports.useMemo(() => {
+    if (IsObject(input)) {
+      const keyed = {};
+      let i2 = 0;
+      for (const key in input) keyed[key] = textures[i2++];
+      return keyed;
+    } else {
+      return textures;
+    }
+  }, [input, textures]);
+  return mappedTextures;
+}
+useTexture.preload = (url) => useLoader.preload(TextureLoader, url);
+useTexture.clear = (input) => useLoader.clear(TextureLoader, input);
+const getVersion = () => parseInt(REVISION.replace(/\D+/g, ""));
+const version = /* @__PURE__ */ getVersion();
+class StarfieldMaterial extends ShaderMaterial {
+  constructor() {
+    super({
+      uniforms: {
+        time: {
+          value: 0
+        },
+        fade: {
+          value: 1
+        }
+      },
+      vertexShader: (
+        /* glsl */
+        `
+      uniform float time;
+      attribute float size;
+      varying vec3 vColor;
+      void main() {
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 0.5);
+        gl_PointSize = size * (30.0 / -mvPosition.z) * (3.0 + sin(time + 100.0));
+        gl_Position = projectionMatrix * mvPosition;
+      }`
+      ),
+      fragmentShader: (
+        /* glsl */
+        `
+      uniform sampler2D pointTexture;
+      uniform float fade;
+      varying vec3 vColor;
+      void main() {
+        float opacity = 1.0;
+        if (fade == 1.0) {
+          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+          opacity = 1.0 / (1.0 + exp(16.0 * (d - 0.25)));
+        }
+        gl_FragColor = vec4(vColor, opacity);
+
+        #include <tonemapping_fragment>
+	      #include <${version >= 154 ? "colorspace_fragment" : "encodings_fragment"}>
+      }`
+      )
+    });
+  }
+}
+const genStar = (r) => {
+  return new Vector3().setFromSpherical(new Spherical(r, Math.acos(1 - Math.random() * 2), Math.random() * 2 * Math.PI));
+};
+const Stars = /* @__PURE__ */ reactExports.forwardRef(({
+  radius = 100,
+  depth = 50,
+  count = 5e3,
+  saturation = 0,
+  factor = 4,
+  fade = false,
+  speed = 1
+}, ref) => {
+  const material = reactExports.useRef(null);
+  const [position, color, size] = reactExports.useMemo(() => {
+    const positions = [];
+    const colors = [];
+    const sizes = Array.from({
+      length: count
+    }, () => (0.5 + 0.5 * Math.random()) * factor);
+    const color2 = new Color();
+    let r = radius + depth;
+    const increment = depth / count;
+    for (let i2 = 0; i2 < count; i2++) {
+      r -= increment * Math.random();
+      positions.push(...genStar(r).toArray());
+      color2.setHSL(i2 / count, saturation, 0.9);
+      colors.push(color2.r, color2.g, color2.b);
+    }
+    return [new Float32Array(positions), new Float32Array(colors), new Float32Array(sizes)];
+  }, [count, depth, factor, radius, saturation]);
+  useFrame((state2) => material.current && (material.current.uniforms.time.value = state2.clock.elapsedTime * speed));
+  const [starfieldMaterial] = reactExports.useState(() => new StarfieldMaterial());
+  return /* @__PURE__ */ reactExports.createElement("points", {
+    ref
+  }, /* @__PURE__ */ reactExports.createElement("bufferGeometry", null, /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
+    attach: "attributes-position",
+    args: [position, 3]
+  }), /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
+    attach: "attributes-color",
+    args: [color, 3]
+  }), /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
+    attach: "attributes-size",
+    args: [size, 1]
+  })), /* @__PURE__ */ reactExports.createElement("primitive", {
+    ref: material,
+    object: starfieldMaterial,
+    attach: "material",
+    blending: AdditiveBlending,
+    "uniforms-fade-value": fade,
+    depthWrite: false,
+    transparent: true,
+    vertexColors: true
+  }));
+});
+function TargetBrackets() {
+  const SIZE = 32;
+  const GAP = 6;
+  const ARM = 8;
+  const STROKE = "rgba(0,255,255,0.85)";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "svg",
+    {
+      width: SIZE + GAP * 2,
+      height: SIZE + GAP * 2,
+      style: {
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%,-50%)",
+        pointerEvents: "none"
+      },
+      "aria-hidden": "true",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "polyline",
+          {
+            points: `${GAP + ARM},${GAP} ${GAP},${GAP} ${GAP},${GAP + ARM}`,
+            fill: "none",
+            stroke: STROKE,
+            strokeWidth: "1.5"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "polyline",
+          {
+            points: `${GAP + SIZE - ARM},${GAP} ${GAP + SIZE},${GAP} ${GAP + SIZE},${GAP + ARM}`,
+            fill: "none",
+            stroke: STROKE,
+            strokeWidth: "1.5"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "polyline",
+          {
+            points: `${GAP},${GAP + SIZE - ARM} ${GAP},${GAP + SIZE} ${GAP + ARM},${GAP + SIZE}`,
+            fill: "none",
+            stroke: STROKE,
+            strokeWidth: "1.5"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "polyline",
+          {
+            points: `${GAP + SIZE},${GAP + SIZE - ARM} ${GAP + SIZE},${GAP + SIZE} ${GAP + SIZE - ARM},${GAP + SIZE}`,
+            fill: "none",
+            stroke: STROKE,
+            strokeWidth: "1.5"
+          }
+        )
+      ]
+    }
+  );
+}
+function EnemyLabel({
+  dist,
+  theta,
+  phi,
+  isLocked
+}) {
+  const x2 = dist * Math.cos(phi) * Math.cos(theta);
+  const y = dist * Math.sin(phi);
+  const z = dist * Math.cos(phi) * Math.sin(theta);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("group", { position: [x2, y, z], children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Html,
+    {
+      center: true,
+      occlude: true,
+      distanceFactor: dist * 0.6,
+      style: { pointerEvents: "none" },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            pointerEvents: "none"
+          },
+          children: [
+            isLocked && /* @__PURE__ */ jsxRuntimeExports.jsx(TargetBrackets, {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "span",
+              {
+                style: {
+                  fontFamily: "monospace",
+                  fontSize: "9px",
+                  color: isLocked ? "#00ffff" : "rgba(0,200,220,0.7)",
+                  textShadow: isLocked ? "0 0 6px rgba(0,255,255,0.9)" : "0 0 4px rgba(0,180,200,0.5)",
+                  background: "rgba(0,0,0,0.4)",
+                  padding: "1px 4px",
+                  borderRadius: "3px",
+                  whiteSpace: "nowrap",
+                  marginTop: isLocked ? "24px" : "0",
+                  letterSpacing: "0.05em"
+                },
+                children: [
+                  "◈ ",
+                  Math.round(dist),
+                  "u"
+                ]
+              }
+            )
+          ]
+        }
+      )
+    }
+  ) });
+}
+function EnemyLabels() {
+  const enemies = useEnemyStore((s) => s.enemies);
+  const lockedTarget = useEnemyStore((s) => s.lockedTarget);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: enemies.map((enemy) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    EnemyLabel,
+    {
+      dist: enemy.distance ?? ENEMY_WORLD_RADIUS,
+      theta: enemy.theta,
+      phi: enemy.phi,
+      isLocked: lockedTarget === enemy.id
+    },
+    enemy.id
+  )) });
+}
+const ENEMY_VISUAL_SCALE = 10;
+let nextId = 1;
+function getWavePool(wave) {
+  const clamped = Math.min(Math.max(wave, 1), 6);
+  return PHASE_ENEMY_POOL[clamped] ?? PHASE_ENEMY_POOL[1];
+}
+function spawnInitialEnemies() {
+  const pool = getWavePool(1);
+  for (let i2 = 0; i2 < 6; i2++) {
+    const type = pool[i2 % pool.length];
+    const cfg = ENEMY_CONFIG_MAP[type];
+    if (!cfg) continue;
+    const enemy = {
+      id: `enemy-${nextId++}-${Date.now() + i2}`,
+      type,
+      theta: i2 / 6 * Math.PI * 2 + Math.random() * 0.4,
+      phi: (Math.random() - 0.5) * Math.PI * 0.35,
+      distance: ENEMY_WORLD_RADIUS,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      speed: cfg.speed,
+      damage: cfg.damage,
+      reward: cfg.reward,
+      scoreValue: cfg.scoreValue,
+      hostile: false
+    };
+    useEnemyStore.getState().addEnemy(enemy);
+  }
+}
+function EnemyMesh({ enemy }) {
+  const groupRef = reactExports.useRef(null);
+  const isLocked = useEnemyStore((s) => s.lockedTarget === enemy.id);
+  const cfg = ENEMY_CONFIG_MAP[enemy.type];
+  useFrame((state2, delta) => {
+    if (!groupRef.current || !cfg) return;
+    const currentDist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+    if (!enemy.hostile) {
+      enemy.theta += delta * enemy.speed * 0.3;
+      const x22 = currentDist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+      const y2 = currentDist * Math.sin(enemy.phi);
+      const z2 = currentDist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+      groupRef.current.position.set(x22, y2, z2);
+      groupRef.current.lookAt(0, 0, 0);
+      const camPos = state2.camera.position;
+      const distToPlayer = Math.sqrt(
+        (camPos.x - x22) ** 2 + (camPos.y - y2) ** 2 + (camPos.z - z2) ** 2
+      );
+      if (distToPlayer < 40) {
+        useEnemyStore.getState().setEnemyHostile(enemy.id);
+      }
+      return;
+    }
+    const enemyPos = new Vector3(
+      currentDist * Math.cos(enemy.phi) * Math.cos(enemy.theta),
+      currentDist * Math.sin(enemy.phi),
+      currentDist * Math.cos(enemy.phi) * Math.sin(enemy.theta)
+    );
+    const playerPos = state2.camera.position.clone();
+    const toPlayer = playerPos.sub(enemyPos).normalize();
+    const toEarth = enemyPos.clone().normalize().negate();
+    const direction = toEarth.lerp(toPlayer, 0.3).normalize();
+    const dt = Math.min(delta, 0.05);
+    const newPos = enemyPos.addScaledVector(direction, cfg.speed * dt);
+    enemy.distance = newPos.length();
+    enemy.theta = Math.atan2(newPos.z, newPos.x);
+    enemy.phi = Math.asin(
+      Math.max(-1, Math.min(1, newPos.y / (enemy.distance || 1)))
+    );
+    groupRef.current.position.copy(newPos);
+    groupRef.current.lookAt(0, 0, 0);
+    if (enemy.distance < 10) {
+      useEnemyStore.getState().removeEnemy(enemy.id);
+    }
+  });
+  if (!cfg) return null;
+  const size = cfg.scale * ENEMY_VISUAL_SCALE;
+  const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+  const x2 = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+  const y = dist * Math.sin(enemy.phi);
+  const z = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+  const hpPct = enemy.hp / enemy.maxHp;
+  const hpBarFill = Math.max(0, hpPct);
+  const barColor = hpPct > 0.5 ? "#00ff44" : hpPct > 0.25 ? "#ffaa00" : "#ff3333";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("group", { ref: groupRef, position: [x2, y, z], children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("boxGeometry", { args: [size, size, size * 1.4] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          color: cfg.color,
+          emissive: cfg.color,
+          emissiveIntensity: enemy.hostile ? 0.5 : 0.15
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("pointLight", { color: cfg.color, intensity: 0.6, distance: size * 4 }),
+    isLocked && /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { rotation: [Math.PI / 2, 0, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("torusGeometry", { args: [size * 0.9, size * 0.06, 8, 32] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshBasicMaterial",
+        {
+          color: "#00ffff",
+          wireframe: false,
+          transparent: true,
+          opacity: 0.85
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [0, size * 0.9, 0], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("planeGeometry", { args: [size * 1.2, size * 0.12] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshBasicMaterial",
+        {
+          color: "#111",
+          transparent: true,
+          opacity: 0.7,
+          side: DoubleSide
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [size * 1.2 * (hpBarFill - 1) / 2, size * 0.9, 0.02], children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("planeGeometry", { args: [size * 1.2 * hpBarFill, size * 0.12] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshBasicMaterial",
+        {
+          color: barColor,
+          transparent: true,
+          opacity: 0.9,
+          side: DoubleSide
+        }
+      )
+    ] })
+  ] });
+}
+function EnemyLayer() {
+  const { enemies } = useEnemyStore();
+  reactExports.useEffect(() => {
+    if (useEnemyStore.getState().enemies.length === 0) {
+      spawnInitialEnemies();
+    }
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: enemies.map((enemy) => /* @__PURE__ */ jsxRuntimeExports.jsx(EnemyMesh, { enemy }, enemy.id)) });
+}
+function Explosion({ position, onComplete }) {
+  const outerRef = reactExports.useRef(null);
+  const innerRef = reactExports.useRef(null);
+  const lifetime = reactExports.useRef(0);
+  const [done, setDone] = reactExports.useState(false);
+  useFrame((_, delta) => {
+    if (done) return;
+    lifetime.current += delta;
+    const progress = Math.min(lifetime.current / 0.5, 1);
+    const scale = 0.1 + progress * 3;
+    const opacity = 1 - progress;
+    if (outerRef.current) {
+      outerRef.current.scale.setScalar(scale);
+      const mat = outerRef.current.material;
+      mat.opacity = opacity * 0.6;
+    }
+    if (innerRef.current) {
+      innerRef.current.scale.setScalar(scale * 0.5);
+      const mat = innerRef.current.material;
+      mat.opacity = opacity;
+    }
+    if (progress >= 1) {
+      setDone(true);
+      onComplete();
+    }
+  });
+  if (done) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("group", { position, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { ref: outerRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1, 16, 16] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshBasicMaterial",
+        {
+          color: "#ff6600",
+          transparent: true,
+          opacity: 0.6,
+          wireframe: true
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { ref: innerRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1, 8, 8] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("meshBasicMaterial", { color: "#ffff00", transparent: true, opacity: 1 })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("pointLight", { color: "#ff6600", intensity: 10, distance: 15 })
+  ] });
+}
 const RESOURCES = {
   iron: {
     type: "iron",
@@ -65644,7 +69095,6 @@ const PHYSICS = {
   ACCELERATION: 15,
   DRAG: 0.97,
   BRAKE_FORCE: 0.85,
-  ROTATION_SPEED: 1.5,
   FUEL_CONSUMPTION_RATE: 0.03,
   BOOST_FUEL_RATE: 0.12,
   MINING_DURATION: 3e3,
@@ -65888,63 +69338,247 @@ function CraftingPanel() {
     ] })
   ] }) });
 }
-const DEFAULT_STATE = {
-  position: [0, 0, 0],
-  velocity: [0, 0, 0],
-  rotation: [0, 0, 0],
-  fuel: 100,
-  maxFuel: 100,
-  hull: 100,
-  maxHull: 100,
-  cargo: 0,
-  maxCargo: 500,
-  oxygen: 100,
-  power: 100,
-  shieldStrength: 0,
-  speed: 50,
-  miningPower: 10,
-  installedComponents: [],
-  isMining: false,
-  miningTarget: null,
-  miningProgress: 0
-};
-const useShipStore = create((set) => ({
-  ...DEFAULT_STATE,
-  setPosition: (pos) => set({ position: pos }),
-  setVelocity: (vel) => set({ velocity: vel }),
-  setRotation: (rot) => set({ rotation: rot }),
-  takeDamage: (amount) => set((s) => {
-    const shieldAbsorb = Math.min(s.shieldStrength, amount);
-    const hullDamage = amount - shieldAbsorb;
-    return {
-      hull: Math.max(0, s.hull - hullDamage),
-      shieldStrength: Math.max(0, s.shieldStrength - shieldAbsorb)
-    };
-  }),
-  consumeFuel: (amount) => set((s) => ({ fuel: Math.max(0, s.fuel - amount) })),
-  refuel: (amount) => set((s) => ({ fuel: Math.min(s.maxFuel, s.fuel + amount) })),
-  repairHull: (amount) => set((s) => ({ hull: Math.min(s.maxHull, s.hull + amount) })),
-  addCargo: (weight) => set((s) => ({ cargo: s.cargo + weight })),
-  removeCargo: (weight) => set((s) => ({ cargo: Math.max(0, s.cargo - weight) })),
-  setMining: (isMining, targetId = null) => set({ isMining, miningTarget: targetId, miningProgress: 0 }),
-  setMiningProgress: (progress) => set({ miningProgress: progress }),
-  installComponent: (component) => set((s) => {
-    const stats = component.stats;
-    return {
-      installedComponents: [
-        ...s.installedComponents,
-        { ...component, installed: true }
+const isMobile = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+const SHIP_COUNT = 4;
+function DistantShips() {
+  const groupRefs = reactExports.useRef([]);
+  const orbits = reactExports.useMemo(
+    () => Array.from({ length: SHIP_COUNT }, (_, i2) => ({
+      speed: 0.04 + Math.random() * 0.06,
+      radius: 60 + Math.random() * 60,
+      height: (Math.random() - 0.5) * 30,
+      phase: i2 / SHIP_COUNT * Math.PI * 2,
+      tilt: (Math.random() - 0.5) * 0.3
+    })),
+    []
+  );
+  useFrame(({ clock }) => {
+    if (isMobile) return;
+    const t = clock.getElapsedTime();
+    orbits.forEach((orbit, i2) => {
+      const group = groupRefs.current[i2];
+      if (!group) return;
+      const angle = t * orbit.speed + orbit.phase;
+      group.position.set(
+        Math.cos(angle) * orbit.radius,
+        orbit.height + Math.sin(angle * 0.5) * 5,
+        Math.sin(angle) * orbit.radius * 0.8
+      );
+    });
+  });
+  if (isMobile) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: orbits.map((orbit, i2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "group",
+    {
+      ref: (el) => {
+        groupRefs.current[i2] = el;
+      },
+      position: [orbit.radius, orbit.height, 0],
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { rotation: [0, orbit.tilt, 0], children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("boxGeometry", { args: [0.3, 0.1, 0.8] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "meshStandardMaterial",
+            {
+              color: "#001133",
+              emissive: "#4488ff",
+              emissiveIntensity: 2,
+              transparent: true,
+              opacity: 0.7
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("pointLight", { color: "#4488ff", intensity: 0.4, distance: 8 })
+      ]
+    },
+    orbit.phase.toFixed(4)
+  )) });
+}
+const METEOR_COUNT_MOBILE = 2;
+const METEOR_COUNT_DESKTOP = 4;
+function MeteorStreaks() {
+  const COUNT = isMobile ? METEOR_COUNT_MOBILE : METEOR_COUNT_DESKTOP;
+  const timers = reactExports.useRef(
+    Array.from({ length: COUNT }, (_, i2) => i2 * 4)
+  );
+  const meteors = reactExports.useRef(
+    Array.from({ length: COUNT }, () => ({
+      active: false,
+      startPos: new Vector3(),
+      endPos: new Vector3(),
+      progress: 0,
+      speed: 3,
+      opacity: 0
+    }))
+  );
+  const INTERVAL = 10;
+  const spawnMeteor = (m2) => {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI * 0.6 - Math.PI * 0.3;
+    const r = 150 + Math.random() * 100;
+    const dir = new Vector3(
+      (Math.random() - 0.5) * 40,
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 40
+    ).normalize().multiplyScalar(15);
+    m2.startPos.set(
+      r * Math.cos(phi) * Math.cos(theta),
+      r * Math.sin(phi),
+      r * Math.cos(phi) * Math.sin(theta)
+    );
+    m2.endPos.copy(m2.startPos).add(dir);
+    m2.progress = 0;
+    m2.speed = 4 + Math.random() * 3;
+    m2.opacity = 0.8;
+    m2.active = true;
+  };
+  const linePoints = reactExports.useRef(
+    Array.from({ length: COUNT }, () => [
+      [0, 0, 0],
+      [0, 0, 0]
+    ])
+  );
+  const opacities = reactExports.useRef(Array(COUNT).fill(0));
+  useFrame((_, delta) => {
+    meteors.current.forEach((m2, i2) => {
+      timers.current[i2] -= delta;
+      if (timers.current[i2] <= 0 && !m2.active) {
+        spawnMeteor(m2);
+        timers.current[i2] = INTERVAL + Math.random() * 8;
+      }
+      if (!m2.active) return;
+      m2.progress += delta * m2.speed;
+      if (m2.progress >= 1) {
+        m2.active = false;
+        m2.opacity = 0;
+        opacities.current[i2] = 0;
+        return;
+      }
+      m2.opacity = m2.progress > 0.7 ? (1 - m2.progress) / 0.3 : 1;
+      opacities.current[i2] = m2.opacity;
+      const cur = m2.startPos.clone().lerp(m2.endPos, m2.progress);
+      linePoints.current[i2] = [
+        [cur.x, cur.y, cur.z],
+        [
+          cur.x + (m2.endPos.x - m2.startPos.x) * 0.15,
+          cur.y + (m2.endPos.y - m2.startPos.y) * 0.15,
+          cur.z + (m2.endPos.z - m2.startPos.z) * 0.15
+        ]
+      ];
+    });
+  });
+  const meteorIds = Array.from(
+    { length: COUNT },
+    (_, i2) => `meteor-id-${i2 + 1}`
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: meteorIds.map((id, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    MeteorLine,
+    {
+      index: i2,
+      linePoints,
+      opacities
+    },
+    id
+  )) });
+}
+function MeteorLine({
+  index: index2,
+  linePoints,
+  opacities
+}) {
+  const groupRef = reactExports.useRef(null);
+  useFrame(() => {
+    const pts = linePoints.current[index2];
+    const opacity = opacities.current[index2];
+    if (!groupRef.current) return;
+    const child = groupRef.current.children[0];
+    if (child == null ? void 0 : child.material) {
+      child.material.opacity = opacity;
+    }
+    if (child == null ? void 0 : child.geometry) {
+      const posArr = child.geometry.getAttribute("position");
+      if (posArr && pts) {
+        posArr.setXYZ(0, pts[0][0], pts[0][1], pts[0][2]);
+        posArr.setXYZ(1, pts[1][0], pts[1][1], pts[1][2]);
+        posArr.needsUpdate = true;
+      }
+    }
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("group", { ref: groupRef, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Line4,
+    {
+      points: [
+        [0, 0, 0],
+        [1, 0, 0]
       ],
-      maxHull: s.maxHull + (stats.maxHull ?? 0),
-      maxFuel: s.maxFuel + (stats.maxFuel ?? 0),
-      maxCargo: s.maxCargo + (stats.maxCargo ?? 0),
-      speed: s.speed + (stats.speed ?? 0),
-      miningPower: s.miningPower + (stats.miningPower ?? 0),
-      shieldStrength: s.shieldStrength + (stats.shieldStrength ?? 0)
-    };
-  }),
-  reset: () => set(DEFAULT_STATE)
-}));
+      color: "#aaddff",
+      lineWidth: 1.5,
+      transparent: true,
+      opacity: 0
+    }
+  ) });
+}
+const FLASH_COUNT_MOBILE = 1;
+const FLASH_COUNT_DESKTOP = 3;
+function DistantFlashes() {
+  const COUNT = isMobile ? FLASH_COUNT_MOBILE : FLASH_COUNT_DESKTOP;
+  const lightRefs = reactExports.useRef([]);
+  const timers = reactExports.useRef(
+    Array.from({ length: COUNT }, (_, i2) => i2 * 6)
+  );
+  const states = reactExports.useRef(
+    Array.from({ length: COUNT }, () => ({
+      fading: false,
+      pos: new Vector3(80, 0, 80)
+    }))
+  );
+  useFrame((_, delta) => {
+    states.current.forEach((s, i2) => {
+      const light = lightRefs.current[i2];
+      if (!light) return;
+      timers.current[i2] -= delta;
+      if (timers.current[i2] <= 0 && !s.fading) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = (Math.random() - 0.5) * Math.PI * 0.8;
+        const r = 100 + Math.random() * 100;
+        s.pos.set(
+          r * Math.cos(phi) * Math.cos(theta),
+          r * Math.sin(phi),
+          r * Math.cos(phi) * Math.sin(theta)
+        );
+        light.position.copy(s.pos);
+        light.intensity = 2;
+        s.fading = true;
+        timers.current[i2] = 15 + Math.random() * 10;
+      }
+      if (s.fading) {
+        light.intensity = Math.max(0, light.intensity - delta * 6);
+        if (light.intensity <= 0) s.fading = false;
+      }
+    });
+  });
+  const flashIds = Array.from({ length: COUNT }, (_, i2) => `flash-id-${i2 + 1}`);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: flashIds.map((id, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "pointLight",
+    {
+      ref: (el) => {
+        lightRefs.current[i2] = el;
+      },
+      color: "#88ccff",
+      intensity: 0,
+      distance: 80,
+      decay: 2
+    },
+    id
+  )) });
+}
+function AmbientUniverse() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(DistantShips, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(MeteorStreaks, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(DistantFlashes, {})
+  ] });
+}
 const seededRandom = (seed) => {
   const x2 = Math.sin(seed) * 1e4;
   return x2 - Math.floor(x2);
@@ -66252,6 +69886,151 @@ function DerelictShips() {
     )
   )) });
 }
+function generateHexGrid(radius, divisions) {
+  const hexagons = [];
+  const angleStep = Math.PI / divisions;
+  for (let lat = 0; lat < divisions; lat++) {
+    for (let lon = 0; lon < divisions * 2; lon++) {
+      const points = [];
+      for (let i2 = 0; i2 <= 6; i2++) {
+        const angle = i2 / 6 * Math.PI * 2;
+        const theta = lat * angleStep + Math.cos(angle) * angleStep * 0.5;
+        const phi = lon * angleStep + Math.sin(angle) * angleStep * 0.5;
+        const x2 = radius * Math.sin(theta) * Math.cos(phi);
+        const y = radius * Math.cos(theta);
+        const z = radius * Math.sin(theta) * Math.sin(phi);
+        points.push([x2, y, z]);
+      }
+      hexagons.push({ id: `hex-${lat}-${lon}`, points });
+    }
+  }
+  return hexagons;
+}
+const LANE_RADII = [
+  1.6,
+  1.9,
+  2.2,
+  2.5,
+  2.8
+];
+function HexShell({
+  radius,
+  isActive,
+  isOrbital
+}) {
+  const hexagons = reactExports.useMemo(() => generateHexGrid(radius, 6), [radius]);
+  const activeOpacity = isOrbital ? 0.75 : 0.08;
+  const inactiveOpacity = isOrbital ? 0.2 : 0.03;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: hexagons.map((hex) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Line4,
+    {
+      points: hex.points,
+      color: isActive ? "#00ffff" : "#0088cc",
+      lineWidth: isActive ? 1.5 : 0.6,
+      transparent: true,
+      opacity: isActive ? activeOpacity : inactiveOpacity
+    },
+    hex.id
+  )) });
+}
+function EarthGlobe() {
+  const meshRef = reactExports.useRef(null);
+  const hexGroupRef = reactExports.useRef(null);
+  const dayTexture = useTexture("/textures/earth_day.jpg");
+  useFrame((_, delta) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.05;
+    }
+    if (hexGroupRef.current) {
+      hexGroupRef.current.rotation.y += delta * 0.05;
+    }
+  });
+  const currentLane = useLaneStore((s) => s.currentLane);
+  const cameraMode = useCameraStore((s) => s.mode);
+  const isOrbital = cameraMode === "orbital";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { ref: meshRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 64, 64] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "meshStandardMaterial",
+        {
+          map: dayTexture,
+          roughness: 0.8,
+          metalness: 0.1
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { scale: 1.025, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 32, 32] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: "#44aaff",
+            transparent: true,
+            opacity: 0.22,
+            side: BackSide
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { scale: 1.05, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 32, 32] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: "#2288ee",
+            transparent: true,
+            opacity: 0.12,
+            side: BackSide
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { scale: 1.09, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 32, 32] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: "#1166cc",
+            transparent: true,
+            opacity: 0.07,
+            side: BackSide
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { scale: 1.14, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 32, 32] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: "#0044aa",
+            transparent: true,
+            opacity: 0.04,
+            side: BackSide
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { scale: 1.22, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1.4, 32, 32] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: "#002266",
+            transparent: true,
+            opacity: 0.025,
+            side: BackSide
+          }
+        )
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("group", { ref: hexGroupRef, children: LANE_RADII.map((r, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      HexShell,
+      {
+        radius: r,
+        isActive: i2 + 1 === currentLane,
+        isOrbital
+      },
+      r
+    )) })
+  ] });
+}
 function SpaceStation() {
   const panelRefs = reactExports.useRef([]);
   useFrame(({ clock }) => {
@@ -66356,147 +70135,100 @@ function SpaceStation() {
     ] })
   ] }, `station-${pos[0]}-${pos[2]}`)) });
 }
-const getVersion = () => parseInt(REVISION.replace(/\D+/g, ""));
-const version = /* @__PURE__ */ getVersion();
-class StarfieldMaterial extends ShaderMaterial {
-  constructor() {
-    super({
-      uniforms: {
-        time: {
-          value: 0
-        },
-        fade: {
-          value: 1
-        }
-      },
-      vertexShader: (
-        /* glsl */
-        `
-      uniform float time;
-      attribute float size;
-      varying vec3 vColor;
-      void main() {
-        vColor = color;
-        vec4 mvPosition = modelViewMatrix * vec4(position, 0.5);
-        gl_PointSize = size * (30.0 / -mvPosition.z) * (3.0 + sin(time + 100.0));
-        gl_Position = projectionMatrix * mvPosition;
-      }`
-      ),
-      fragmentShader: (
-        /* glsl */
-        `
-      uniform sampler2D pointTexture;
-      uniform float fade;
-      varying vec3 vColor;
-      void main() {
-        float opacity = 1.0;
-        if (fade == 1.0) {
-          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
-          opacity = 1.0 / (1.0 + exp(16.0 * (d - 0.25)));
-        }
-        gl_FragColor = vec4(vColor, opacity);
-
-        #include <tonemapping_fragment>
-	      #include <${version >= 154 ? "colorspace_fragment" : "encodings_fragment"}>
-      }`
-      )
+const NEBULA_COLORS = [
+  new Color(662090),
+  new Color(1706554),
+  new Color(666170),
+  new Color(2755162),
+  new Color(659514),
+  new Color(1378869)
+];
+function NebulaClouds() {
+  const COUNT = isMobile ? 6 : 12;
+  const meshRefs = reactExports.useRef([]);
+  const clouds = reactExports.useMemo(() => {
+    const result = [];
+    for (let i2 = 0; i2 < COUNT; i2++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = (Math.random() - 0.5) * Math.PI * 0.8;
+      const r = 120 + Math.random() * 160;
+      result.push({
+        id: `nc-${i2}`,
+        position: new Vector3(
+          r * Math.cos(phi) * Math.cos(theta),
+          r * Math.sin(phi),
+          r * Math.cos(phi) * Math.sin(theta)
+        ),
+        scale: 50 + Math.random() * 100,
+        color: NEBULA_COLORS[i2 % NEBULA_COLORS.length],
+        opacity: 0.1 + Math.random() * 0.2,
+        driftX: (Math.random() - 0.5) * 8e-3,
+        driftY: (Math.random() - 0.5) * 5e-3
+      });
+    }
+    return result;
+  }, [COUNT]);
+  useFrame((_, delta) => {
+    clouds.forEach((cloud, i2) => {
+      const mesh = meshRefs.current[i2];
+      if (!mesh) return;
+      cloud.position.x += cloud.driftX * delta * 60;
+      cloud.position.y += cloud.driftY * delta * 60;
+      if (Math.abs(cloud.position.x) > 300) cloud.driftX *= -1;
+      if (Math.abs(cloud.position.y) > 300) cloud.driftY *= -1;
+      mesh.position.copy(cloud.position);
     });
-  }
-}
-const genStar = (r) => {
-  return new Vector3().setFromSpherical(new Spherical(r, Math.acos(1 - Math.random() * 2), Math.random() * 2 * Math.PI));
-};
-const Stars = /* @__PURE__ */ reactExports.forwardRef(({
-  radius = 100,
-  depth = 50,
-  count = 5e3,
-  saturation = 0,
-  factor = 4,
-  fade = false,
-  speed = 1
-}, ref) => {
-  const material = reactExports.useRef(null);
-  const [position, color, size] = reactExports.useMemo(() => {
-    const positions = [];
-    const colors = [];
-    const sizes = Array.from({
-      length: count
-    }, () => (0.5 + 0.5 * Math.random()) * factor);
-    const color2 = new Color();
-    let r = radius + depth;
-    const increment = depth / count;
-    for (let i2 = 0; i2 < count; i2++) {
-      r -= increment * Math.random();
-      positions.push(...genStar(r).toArray());
-      color2.setHSL(i2 / count, saturation, 0.9);
-      colors.push(color2.r, color2.g, color2.b);
-    }
-    return [new Float32Array(positions), new Float32Array(colors), new Float32Array(sizes)];
-  }, [count, depth, factor, radius, saturation]);
-  useFrame((state2) => material.current && (material.current.uniforms.time.value = state2.clock.elapsedTime * speed));
-  const [starfieldMaterial] = reactExports.useState(() => new StarfieldMaterial());
-  return /* @__PURE__ */ reactExports.createElement("points", {
-    ref
-  }, /* @__PURE__ */ reactExports.createElement("bufferGeometry", null, /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
-    attach: "attributes-position",
-    args: [position, 3]
-  }), /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
-    attach: "attributes-color",
-    args: [color, 3]
-  }), /* @__PURE__ */ reactExports.createElement("bufferAttribute", {
-    attach: "attributes-size",
-    args: [size, 1]
-  })), /* @__PURE__ */ reactExports.createElement("primitive", {
-    ref: material,
-    object: starfieldMaterial,
-    attach: "material",
-    blending: AdditiveBlending,
-    "uniforms-fade-value": fade,
-    depthWrite: false,
-    transparent: true,
-    vertexColors: true
-  }));
-});
-function StarField() {
-  const nebulaRef = reactExports.useRef(null);
-  useFrame(({ clock }) => {
-    if (nebulaRef.current) {
-      nebulaRef.current.rotation.y = clock.getElapsedTime() * 5e-3;
-    }
   });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: clouds.map((cloud, i2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "mesh",
+    {
+      ref: (el) => {
+        meshRefs.current[i2] = el;
+      },
+      position: cloud.position.clone(),
+      scale: cloud.scale,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [1, 8, 8] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "meshBasicMaterial",
+          {
+            color: cloud.color,
+            transparent: true,
+            opacity: cloud.opacity,
+            depthWrite: false
+          }
+        )
+      ]
+    },
+    cloud.id
+  )) });
+}
+function StarField() {
+  const starCount = isMobile ? 3e3 : 8e3;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       Stars,
       {
-        radius: 500,
-        depth: 60,
-        count: 5e3,
-        factor: 4,
+        radius: 300,
+        depth: 100,
+        count: starCount,
+        factor: 6,
         saturation: 0,
         fade: true,
-        speed: 0.5
+        speed: 0.3
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { ref: nebulaRef, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [400, 16, 16] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(NebulaClouds, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [499, 16, 16] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "meshBasicMaterial",
         {
-          color: new Color(0.02, 0.05, 0.15),
+          color: new Color(0.01, 0.02, 0.06),
           side: BackSide,
           transparent: true,
-          opacity: 0.6
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [200, 50, -300], children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("sphereGeometry", { args: [80, 8, 8] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "meshBasicMaterial",
-        {
-          color: new Color(0.05, 0.02, 0.15),
-          transparent: true,
-          opacity: 0.08
+          opacity: 0.9,
+          depthWrite: false
         }
       )
     ] })
@@ -66637,6 +70369,140 @@ function MiningLaser({
     ] })
   ] });
 }
+const WEAPONS = [
+  {
+    id: "pulse",
+    label: "PULSE",
+    damage: 15,
+    fireRate: 5,
+    energyCost: 5,
+    speed: 20,
+    color: "#00ffff"
+  },
+  {
+    id: "rail",
+    label: "RAIL",
+    damage: 80,
+    fireRate: 0.8,
+    energyCost: 20,
+    speed: 60,
+    color: "#ffffff"
+  },
+  {
+    id: "missile",
+    label: "MISSILE",
+    damage: 120,
+    fireRate: 0.5,
+    energyCost: 35,
+    speed: 12,
+    color: "#ff8800"
+  }
+];
+const WEAPON_MAP = Object.fromEntries(
+  WEAPONS.map((w) => [w.id, w])
+);
+const cameraRef = {
+  forwardX: 0,
+  forwardY: 0,
+  forwardZ: -1,
+  posX: 0,
+  posY: 0,
+  posZ: 0
+};
+function handleFireButton() {
+  const { activeWeapon, cooldowns, setCooldown, consumeAmmo, ammo } = useWeaponsStore.getState();
+  if ((cooldowns[activeWeapon] ?? 0) > 0) return false;
+  if ((ammo[activeWeapon] ?? 0) <= 0) return false;
+  const weapon = WEAPON_MAP[activeWeapon];
+  if (!weapon) return false;
+  useEnemyStore.getState().setAllHostile();
+  const { addProjectile } = useProjectileStore.getState();
+  const lockedTarget = useEnemyStore.getState().lockedTarget;
+  if (activeWeapon === "rail") {
+    if (lockedTarget) {
+      useEnemyStore.getState().damageEnemy(lockedTarget, weapon.damage);
+    }
+    addProjectile({
+      position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
+      direction: [cameraRef.forwardX, cameraRef.forwardY, cameraRef.forwardZ],
+      speed: 300,
+      damage: 0,
+      weaponType: "rail",
+      color: "#ffffff",
+      maxLifetime: 0.15
+    });
+    setCooldown(activeWeapon, 1 / weapon.fireRate);
+    consumeAmmo(activeWeapon);
+    return true;
+  }
+  if (activeWeapon === "missile") {
+    if (!lockedTarget) return false;
+    const enemy = useEnemyStore.getState().enemies.find((e) => e.id === lockedTarget);
+    if (!enemy) return false;
+    const dist = enemy.distance ?? ENEMY_WORLD_RADIUS;
+    const tx = dist * Math.cos(enemy.phi) * Math.cos(enemy.theta);
+    const ty = dist * Math.sin(enemy.phi);
+    const tz = dist * Math.cos(enemy.phi) * Math.sin(enemy.theta);
+    const targetPos = new Vector3(tx, ty, tz);
+    const fromPos = new Vector3(
+      cameraRef.posX,
+      cameraRef.posY,
+      cameraRef.posZ
+    );
+    const dir = targetPos.clone().sub(fromPos).normalize();
+    addProjectile({
+      position: [fromPos.x, fromPos.y, fromPos.z],
+      direction: [dir.x, dir.y, dir.z],
+      speed: weapon.speed,
+      damage: weapon.damage,
+      weaponType: "missile",
+      color: weapon.color,
+      maxLifetime: 6,
+      targetId: lockedTarget
+    });
+    setCooldown(activeWeapon, 1 / weapon.fireRate);
+    consumeAmmo(activeWeapon);
+    return true;
+  }
+  const distanceToTarget = (() => {
+    const locked = useEnemyStore.getState().lockedTarget;
+    const e = locked ? useEnemyStore.getState().enemies.find((en) => en.id === locked) : null;
+    return e ? e.distance ?? 80 : 40;
+  })();
+  const baseSpread = 0.03;
+  const distanceFactor = Math.min(distanceToTarget / 80, 1);
+  const spread = baseSpread + distanceFactor * 0.06;
+  addProjectile({
+    position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
+    direction: [cameraRef.forwardX, cameraRef.forwardY, cameraRef.forwardZ],
+    speed: weapon.speed,
+    damage: weapon.damage,
+    weaponType: activeWeapon,
+    color: weapon.color,
+    maxLifetime: 3
+  });
+  for (let i2 = 0; i2 < 2; i2++) {
+    const offsetX = (Math.random() - 0.5) * spread;
+    const offsetY = (Math.random() - 0.5) * spread;
+    const dir = new Vector3(
+      cameraRef.forwardX + offsetX,
+      cameraRef.forwardY + offsetY,
+      cameraRef.forwardZ
+    ).normalize();
+    addProjectile({
+      position: [cameraRef.posX, cameraRef.posY, cameraRef.posZ],
+      direction: [dir.x, dir.y, dir.z],
+      speed: weapon.speed,
+      damage: Math.floor(weapon.damage * 0.5),
+      weaponType: activeWeapon,
+      color: weapon.color,
+      maxLifetime: 2.5
+    });
+  }
+  setCooldown(activeWeapon, 1 / weapon.fireRate);
+  consumeAmmo(activeWeapon);
+  return true;
+}
 function applyThrust(velocity, direction, acceleration, dt) {
   return [
     velocity[0] + direction[0] * acceleration * dt,
@@ -66656,9 +70522,6 @@ function clampVelocity(velocity, maxSpeed) {
     return [velocity[0] * scale, velocity[1] * scale, velocity[2] * scale];
   }
   return velocity;
-}
-function getSpeed(velocity) {
-  return Math.sqrt(velocity[0] ** 2 + velocity[1] ** 2 + velocity[2] ** 2);
 }
 function ShipController() {
   const { camera, gl } = useThree();
@@ -66687,9 +70550,21 @@ function ShipController() {
           useGameStore.getState().togglePauseMenu();
         }
       }
+      if (e.code === "KeyF") {
+        handleFireButton();
+      }
+      if (e.code === "KeyQ") {
+        useLaneStore.getState().changeLane("down");
+      }
+      if (e.code === "KeyE") {
+        useLaneStore.getState().changeLane("up");
+      }
     };
     const handleKeyUp = (e) => keys.current.delete(e.code);
     const handleMouseMove = (e) => {
+      const aimDelta = e.movementX * 0.5;
+      const currentAim = useLaneStore.getState().aimAngle;
+      useLaneStore.getState().setAimAngle(currentAim + aimDelta);
       if (!isPointerLocked.current) return;
       mouseMovement.current.x += e.movementX;
       mouseMovement.current.y += e.movementY;
@@ -66727,16 +70602,24 @@ function ShipController() {
       return;
     const dt = Math.min(delta, 0.05);
     const shipState = useShipStore.getState();
-    const sensitivity = 2e-3;
-    yaw.current -= mouseMovement.current.x * sensitivity;
-    pitch.current -= mouseMovement.current.y * sensitivity;
+    const settings = useSettingsStore.getState();
+    const mouseSensitivity = 2e-3;
+    const touchSensitivity = 15e-4 * settings.cameraSensitivity;
+    yaw.current -= mouseMovement.current.x * mouseSensitivity;
+    pitch.current -= mouseMovement.current.y * mouseSensitivity;
+    yaw.current -= touchCameraMovement.x * touchSensitivity;
+    pitch.current -= touchCameraMovement.y * touchSensitivity;
+    touchCameraMovement.x = 0;
+    touchCameraMovement.y = 0;
     pitch.current = Math.max(
       -Math.PI / 2.5,
       Math.min(Math.PI / 2.5, pitch.current)
     );
     mouseMovement.current = { x: 0, y: 0 };
-    if (keys.current.has("KeyQ")) roll.current += PHYSICS.ROTATION_SPEED * dt;
-    if (keys.current.has("KeyE")) roll.current -= PHYSICS.ROTATION_SPEED * dt;
+    const rollQ = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 0, 1),
+      roll.current
+    );
     const quaternion = new Quaternion();
     const yawQ = new Quaternion().setFromAxisAngle(
       new Vector3(0, 1, 0),
@@ -66746,39 +70629,38 @@ function ShipController() {
       new Vector3(1, 0, 0),
       pitch.current
     );
-    const rollQ = new Quaternion().setFromAxisAngle(
-      new Vector3(0, 0, 1),
-      roll.current
-    );
     quaternion.multiplyQuaternions(yawQ, pitchQ).multiply(rollQ);
     const forward = new Vector3(0, 0, -1).applyQuaternion(quaternion);
     const right = new Vector3(1, 0, 0).applyQuaternion(quaternion);
+    const pos = positionRef.current;
+    cameraRef.posX = pos[0];
+    cameraRef.posY = pos[1];
+    cameraRef.posZ = pos[2];
+    cameraRef.forwardX = forward.x;
+    cameraRef.forwardY = forward.y;
+    cameraRef.forwardZ = forward.z;
     const hasFuel = shipState.fuel > 0;
     let thrust = [0, 0, 0];
     const isBoosting = keys.current.has("Space") && hasFuel;
     const acc = isBoosting ? PHYSICS.ACCELERATION * PHYSICS.BOOST_MULTIPLIER : PHYSICS.ACCELERATION;
-    if (keys.current.has("KeyW") && hasFuel) {
+    if (keys.current.has("KeyW") && hasFuel)
       thrust = applyThrust(thrust, [forward.x, forward.y, forward.z], acc, dt);
-    }
-    if (keys.current.has("KeyS") && hasFuel) {
+    if (keys.current.has("KeyS") && hasFuel)
       thrust = applyThrust(
         thrust,
         [-forward.x, -forward.y, -forward.z],
         acc * 0.6,
         dt
       );
-    }
-    if (keys.current.has("KeyA") && hasFuel) {
+    if (keys.current.has("KeyA") && hasFuel)
       thrust = applyThrust(
         thrust,
         [-right.x, -right.y, -right.z],
         acc * 0.5,
         dt
       );
-    }
-    if (keys.current.has("KeyD") && hasFuel) {
+    if (keys.current.has("KeyD") && hasFuel)
       thrust = applyThrust(thrust, [right.x, right.y, right.z], acc * 0.5, dt);
-    }
     const isThrusting = thrust[0] !== 0 || thrust[1] !== 0 || thrust[2] !== 0;
     if (isThrusting && hasFuel) {
       const fuelRate = isBoosting ? PHYSICS.BOOST_FUEL_RATE : PHYSICS.FUEL_CONSUMPTION_RATE;
@@ -66791,7 +70673,6 @@ function ShipController() {
     const maxSpeed = isBoosting ? PHYSICS.MAX_SPEED * PHYSICS.BOOST_MULTIPLIER : PHYSICS.MAX_SPEED;
     vel = clampVelocity(vel, maxSpeed);
     velocityRef.current = vel;
-    const pos = positionRef.current;
     const newPos = [
       pos[0] + vel[0] * dt,
       pos[1] + vel[1] * dt,
@@ -66809,142 +70690,874 @@ function ShipController() {
   });
   return null;
 }
-function CargoPanel() {
-  const { maxCargo } = useShipStore();
-  const { resources, totalWeight } = useInventoryStore();
-  const topResources = Object.keys(resources).filter((k2) => resources[k2] > 0).sort((a2, b2) => resources[b2] - resources[a2]).slice(0, 5);
-  const weight = Math.round(totalWeight());
-  const pct = weight / maxCargo * 100;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-4 left-4 hud-panel p-3 w-52 text-xs font-mono", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan", children: "CARGO" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "CAPACITY" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "span",
+function useSwipeControls() {
+  const { changeLane, setAimAngle } = useLaneStore();
+  reactExports.useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    const onTouchStart = (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+    };
+    const onTouchMove = (e) => {
+      const dx = e.touches[0].clientX - startX;
+      const angle = dx / window.innerWidth * 180;
+      setAimAngle(angle);
+    };
+    const onTouchEnd = (e) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      const dt = Date.now() - startTime;
+      const speed = Math.sqrt(dx * dx + dy * dy) / dt;
+      if (Math.abs(dy) > Math.abs(dx) * 1.5 && speed > 0.3) {
+        if (dy < -30) changeLane("up");
+        else if (dy > 30) changeLane("down");
+      }
+    };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [changeLane, setAimAngle]);
+}
+const useMenuStore = create((set, get) => ({
+  activePanel: null,
+  openPanel: (panel) => set({ activePanel: panel }),
+  closePanel: () => set({ activePanel: null }),
+  togglePanel: (panel) => {
+    const current = get().activePanel;
+    set({ activePanel: current === panel ? null : panel });
+  }
+}));
+function CockpitView() {
+  const canvasRef = reactExports.useRef(null);
+  const sweepXRef = reactExports.useRef(0);
+  const animFrameRef = reactExports.useRef(0);
+  reactExports.useEffect(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const SWEEP_DURATION = 4;
+    let lastTime = performance.now();
+    const getVP = (w, h2) => ({
+      left: w * 0.22,
+      right: w * 0.78,
+      top: h2 * 0.08,
+      bottom: h2 * 0.72
+    });
+    const drawCrosshair = (w, h2) => {
+      const ox = w / 2;
+      const oy = h2 * 0.4;
+      ctx.strokeStyle = "rgba(0, 255, 255, 0.35)";
+      ctx.lineWidth = 1;
+      for (const [ax, ay, bx, by] of [
+        [ox - 30, oy, ox - 10, oy],
+        [ox + 10, oy, ox + 30, oy],
+        [ox, oy - 30, ox, oy - 10],
+        [ox, oy + 10, ox, oy + 30]
+      ]) {
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(0, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(ox, oy, 2, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    const drawSweep = (w, h2) => {
+      const { left, right, top, bottom } = getVP(w, h2);
+      const vpWidth = right - left;
+      const sweepX = left + sweepXRef.current * vpWidth;
+      if (sweepX < left || sweepX > right) return;
+      const grad = ctx.createLinearGradient(sweepX - 30, top, sweepX + 6, top);
+      grad.addColorStop(0, "rgba(0,255,255,0)");
+      grad.addColorStop(0.7, "rgba(0,255,255,0.12)");
+      grad.addColorStop(1, "rgba(0,255,255,0.28)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(sweepX - 30, top, 36, bottom - top);
+      ctx.strokeStyle = "rgba(0,255,255,0.45)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sweepX, top);
+      ctx.lineTo(sweepX, bottom);
+      ctx.stroke();
+    };
+    const animate = (now2) => {
+      const delta = (now2 - lastTime) / 1e3;
+      lastTime = now2;
+      sweepXRef.current = (sweepXRef.current + delta / SWEEP_DURATION) % 1;
+      const w = canvas.width;
+      const h2 = canvas.height;
+      ctx.clearRect(0, 0, w, h2);
+      drawCrosshair(w, h2);
+      drawSweep(w, h2);
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute inset-0 pointer-events-none",
+      style: { zIndex: 10 },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "absolute inset-0",
+            style: {
+              zIndex: 9,
+              background: "radial-gradient(ellipse 55% 55% at 50% 40%, rgba(100,180,255,0.06) 0%, rgba(80,160,255,0.10) 55%, transparent 70%)",
+              pointerEvents: "none"
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "img",
+          {
+            src: "/assets/uploads/BE9FB45D-BD44-496F-8D21-511D5E824EFE-1.png",
+            alt: "",
+            className: "absolute inset-0 w-full h-full pointer-events-none select-none",
+            style: {
+              objectFit: "cover",
+              objectPosition: "center",
+              zIndex: 10,
+              userSelect: "none"
+            },
+            draggable: false
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "absolute inset-0 pointer-events-none",
+            style: {
+              zIndex: 10,
+              background: "radial-gradient(ellipse 62% 58% at 50% 40%, transparent 72%, rgba(8,14,24,0.35) 88%, rgba(5,10,18,0.65) 100%)"
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "canvas",
+          {
+            ref: canvasRef,
+            className: "absolute inset-0 pointer-events-none",
+            style: { zIndex: 11 }
+          }
+        )
+      ]
+    }
+  );
+}
+function FPSCounter() {
+  const [fps, setFps] = reactExports.useState(60);
+  reactExports.useEffect(() => {
+    let lastTime = performance.now();
+    let frames = 0;
+    let rafId;
+    const measure = () => {
+      frames++;
+      const now2 = performance.now();
+      if (now2 >= lastTime + 1e3) {
+        setFps(Math.round(frames * 1e3 / (now2 - lastTime)));
+        frames = 0;
+        lastTime = now2;
+      }
+      rafId = requestAnimationFrame(measure);
+    };
+    rafId = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed bottom-4 right-4 bg-black/70 border border-cyan-400/20 px-2 py-1 rounded text-xs pointer-events-none z-50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: fps < 50 ? "text-red-400" : "text-green-400", children: [
+    fps,
+    " FPS"
+  ] }) });
+}
+function AimCone() {
+  const aimAngle = useLaneStore((s) => s.aimAngle);
+  const cx = 100;
+  const cy = 110;
+  const arcR = 80;
+  const indicatorR = 72;
+  const outerR = 86;
+  const isWarning = Math.abs(aimAngle) >= 75;
+  const isLimit = Math.abs(aimAngle) >= 85;
+  const svgAimAngle = 270 + aimAngle;
+  const radAim = svgAimAngle * Math.PI / 180;
+  const lineX = cx + indicatorR * Math.cos(radAim);
+  const lineY = cy + indicatorR * Math.sin(radAim);
+  const arcStartX = cx + arcR * Math.cos(Math.PI);
+  const arcStartY = cy + arcR * Math.sin(Math.PI);
+  const arcEndX = cx + arcR * Math.cos(0);
+  const arcEndY = cy;
+  const ticks = [-75, -45, -15, 0, 15, 45, 75];
+  const accentColor = isLimit ? "#ff3333" : isWarning ? "#ffaa00" : "#00ffff";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: "fixed pointer-events-none select-none",
+      style: {
+        bottom: "68px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 20,
+        width: "200px",
+        height: "120px"
+      },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "svg",
         {
-          className: pct > 90 ? "text-red-400" : pct > 70 ? "text-amber-400" : "text-cyan-300",
+          width: "200",
+          height: "120",
+          viewBox: "0 0 200 120",
+          role: "img",
+          "aria-label": "Aim cone overlay",
+          style: { overflow: "visible" },
           children: [
-            weight,
-            "/",
-            maxCargo,
-            " KG"
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "path",
+              {
+                d: `M ${arcStartX} ${arcStartY} A ${outerR} ${outerR} 0 0 1 ${arcEndX} ${arcEndY}`,
+                fill: "none",
+                stroke: "rgba(0,200,255,0.08)",
+                strokeWidth: "12"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "path",
+              {
+                d: `M ${arcStartX} ${arcStartY} A ${arcR} ${arcR} 0 0 1 ${arcEndX} ${arcEndY}`,
+                fill: "none",
+                stroke: "rgba(0,200,255,0.25)",
+                strokeWidth: "1",
+                strokeDasharray: "4 3"
+              }
+            ),
+            isWarning && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "path",
+              {
+                d: `M ${arcStartX} ${arcStartY} A ${arcR} ${arcR} 0 0 1 ${arcEndX} ${arcEndY}`,
+                fill: "none",
+                stroke: "rgba(255,80,0,0.3)",
+                strokeWidth: "3"
+              }
+            ),
+            ticks.map((t) => {
+              const a2 = (270 + t) * Math.PI / 180;
+              const innerR = t === 0 ? arcR - 12 : arcR - 7;
+              const x1 = cx + arcR * Math.cos(a2);
+              const y1 = cy + arcR * Math.sin(a2);
+              const x2 = cx + innerR * Math.cos(a2);
+              const y2 = cy + innerR * Math.sin(a2);
+              return /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "line",
+                {
+                  x1,
+                  y1,
+                  x2,
+                  y2,
+                  stroke: t === 0 ? "rgba(0,255,255,0.6)" : "rgba(0,200,255,0.35)",
+                  strokeWidth: t === 0 ? 1.5 : 0.8
+                },
+                t
+              );
+            }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "line",
+              {
+                x1: cx,
+                y1: cy,
+                x2: cx,
+                y2: cy - arcR + 8,
+                stroke: "rgba(0,200,255,0.15)",
+                strokeWidth: "0.5",
+                strokeDasharray: "2 3"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "line",
+              {
+                x1: cx,
+                y1: cy,
+                x2: lineX,
+                y2: lineY,
+                stroke: accentColor,
+                strokeWidth: "1.5",
+                style: { filter: `drop-shadow(0 0 3px ${accentColor})` }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "circle",
+              {
+                cx: lineX,
+                cy: lineY,
+                r: "3",
+                fill: accentColor,
+                style: { filter: `drop-shadow(0 0 4px ${accentColor})` }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx, cy, r: "2", fill: "rgba(0,200,255,0.6)" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "text",
+              {
+                x: cx,
+                y: cy + 14,
+                textAnchor: "middle",
+                fill: accentColor,
+                fontSize: "8",
+                fontFamily: "monospace",
+                style: { userSelect: "none" },
+                children: [
+                  aimAngle > 0 ? "+" : "",
+                  Math.round(aimAngle),
+                  "°"
+                ]
+              }
+            ),
+            isLimit && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "text",
+              {
+                x: cx,
+                y: cy - arcR - 6,
+                textAnchor: "middle",
+                fill: "#ff3333",
+                fontSize: "7",
+                fontFamily: "monospace",
+                children: "LIMIT"
+              }
+            )
           ]
         }
       )
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    }
+  );
+}
+let _entryId = 0;
+function timestamp() {
+  const d = /* @__PURE__ */ new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+const useCombatLogStore = create((set) => ({
+  entries: [
+    {
+      id: _entryId++,
+      time: timestamp(),
+      msg: "Systems nominal",
+      level: "info"
+    },
+    {
+      id: _entryId++,
+      time: timestamp(),
+      msg: "Entering combat zone",
+      level: "info"
+    }
+  ],
+  addEntry: (msg, level = "info") => set((state2) => ({
+    entries: [
+      ...state2.entries.slice(-19),
+      { id: _entryId++, time: timestamp(), msg, level }
+    ]
+  }))
+}));
+function CombatLogWatcher() {
+  const addEntry = useCombatLogStore((s) => s.addEntry);
+  useShipStore((s) => s.hull);
+  reactExports.useEffect.bind(null, () => {
+  });
+  useShipStore((s) => s.oxygen);
+  useEnemyStore((s) => s.enemies.length);
+  reactExports.useEffect(() => {
+  }, []);
+  reactExports.useEffect(() => {
+    const unsub = useShipStore.subscribe((state2, prev) => {
+      const diff = Math.round(prev.hull - state2.hull);
+      if (diff >= 5) {
+        if (state2.hull < 30) {
+          addEntry(`⚠ Hull critical: ${Math.round(state2.hull)}%`, "alert");
+        } else {
+          addEntry(
+            `Hull -${diff}% (${Math.round(state2.hull)}% remaining)`,
+            "warn"
+          );
+        }
+      }
+      if (prev.oxygen > 30 && state2.oxygen < 30) {
+        addEntry(`⚠ O2 critical: ${Math.round(state2.oxygen)}%`, "alert");
+      }
+    });
+    return unsub;
+  }, [addEntry]);
+  reactExports.useEffect(() => {
+    const unsub = useEnemyStore.subscribe((state2, prev) => {
+      const killed = prev.enemies.length - state2.enemies.length;
+      if (killed > 0) {
+        addEntry(
+          killed === 1 ? "Target eliminated" : `${killed} targets eliminated`,
+          "info"
+        );
+      }
+    });
+    return unsub;
+  }, [addEntry]);
+  return null;
+}
+function now() {
+  const d = /* @__PURE__ */ new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+function MechLogPanel() {
+  const [open, setOpen] = reactExports.useState(false);
+  const [log2, setLog] = reactExports.useState([
+    { time: now(), msg: "Systems initialized", level: "info" },
+    { time: now(), msg: "Propulsion online", level: "info" },
+    { time: now(), msg: "A.E.G.I.S. standing by", level: "info" }
+  ]);
+  const { hull, maxHull, oxygen, power, fuel } = useShipStore();
+  const { ammo, cooldowns } = useWeaponsStore();
+  const prevOxygenBucket = reactExports.useRef(Math.floor(oxygen / 10));
+  const prevHullBucket = reactExports.useRef(Math.floor(hull / 10));
+  const prevFuelBucket = reactExports.useRef(Math.floor(fuel / 10));
+  reactExports.useEffect(() => {
+    const bucket = Math.floor(oxygen / 10);
+    if (bucket !== prevOxygenBucket.current) {
+      prevOxygenBucket.current = bucket;
+      if (oxygen < 30)
+        setLog((prev) => [
+          { time: now(), msg: "CRITICAL: Oxygen below 30%", level: "alert" },
+          ...prev.slice(0, 49)
+        ]);
+    }
+  }, [oxygen]);
+  reactExports.useEffect(() => {
+    const bucket = Math.floor(hull / 10);
+    if (bucket !== prevHullBucket.current) {
+      prevHullBucket.current = bucket;
+      if (hull < 30)
+        setLog((prev) => [
+          {
+            time: now(),
+            msg: `Hull integrity low: ${Math.round(hull)}%`,
+            level: "warn"
+          },
+          ...prev.slice(0, 49)
+        ]);
+    }
+  }, [hull]);
+  reactExports.useEffect(() => {
+    const bucket = Math.floor(fuel / 10);
+    if (bucket !== prevFuelBucket.current) {
+      prevFuelBucket.current = bucket;
+      if (fuel < 20)
+        setLog((prev) => [
+          { time: now(), msg: "Fuel reserves critical", level: "alert" },
+          ...prev.slice(0, 49)
+        ]);
+    }
+  }, [fuel]);
+  const hullPct = Math.round(hull / maxHull * 100);
+  const levelColor = (l2) => l2 === "alert" ? "text-red-400" : l2 === "warn" ? "text-amber-400" : "text-cyan-400/70";
+  const statBar = (val, max = 100) => {
+    const pct = Math.max(0, Math.min(100, val / max * 100));
+    const col = pct > 60 ? "#00ff88" : pct > 30 ? "#ffb700" : "#ff3333";
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
-        className: "h-full rounded-full transition-all",
         style: {
-          width: `${Math.min(100, pct)}%`,
-          backgroundColor: pct > 90 ? "#FF3333" : "#00E6FF"
-        }
+          flex: 1,
+          height: "3px",
+          background: "rgba(255,255,255,0.1)",
+          borderRadius: "2px",
+          overflow: "hidden",
+          border: "1px solid rgba(0,200,255,0.3)"
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              width: `${pct}%`,
+              height: "100%",
+              background: col,
+              borderRadius: "2px",
+              transition: "width 500ms ease"
+            }
+          }
+        )
       }
-    ) }),
-    topResources.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-gray-500 text-[10px]", children: "Empty" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-1", children: topResources.map((type) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: RESOURCES[type].color }, children: [
-        RESOURCES[type].icon,
-        " ",
-        RESOURCES[type].name
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: resources[type] })
-    ] }, type)) })
-  ] });
-}
-function ControlsGuide() {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-4 right-4 hud-panel p-3 text-[10px] font-mono text-gray-400 w-36", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 tracking-widest font-bold mb-2", children: "CONTROLS" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-0.5", children: [
-      ["WASD", "Move"],
-      ["MOUSE", "Aim"],
-      ["SPACE", "Boost"],
-      ["SHIFT", "Brake"],
-      ["Q/E", "Roll"],
-      ["CLICK", "Mine"],
-      ["I", "Inventory"],
-      ["C", "Crafting"],
-      ["TAB", "HUD"],
-      ["ESC", "Pause"]
-    ].map(([key, action]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-500", children: key }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: action })
-    ] }, key)) })
-  ] });
-}
-function Crosshair({
-  targetId,
-  targetDistance
-}) {
-  const isMining = useShipStore((s) => s.isMining);
-  const inRange2 = targetId !== null && targetDistance < 50;
-  const color = isMining ? "#FFB700" : inRange2 ? "#00E6FF" : "rgba(255,255,255,0.4)";
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative", style: { width: 60, height: 60 }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: 60, height: 60, viewBox: "0 0 60 60", "aria-hidden": "true", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          d: "M5,20 L5,5 L20,5",
-          fill: "none",
-          stroke: color,
-          strokeWidth: 1.5
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          d: "M40,5 L55,5 L55,20",
-          fill: "none",
-          stroke: color,
-          strokeWidth: 1.5
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          d: "M5,40 L5,55 L20,55",
-          fill: "none",
-          stroke: color,
-          strokeWidth: 1.5
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "path",
-        {
-          d: "M40,55 L55,55 L55,40",
-          fill: "none",
-          stroke: color,
-          strokeWidth: 1.5
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: 30, cy: 30, r: 1.5, fill: color }),
-      isMining && /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "circle",
-        {
-          cx: 30,
-          cy: 30,
-          r: 12,
-          fill: "none",
-          stroke: color,
-          strokeWidth: 1,
-          opacity: 0.5,
-          className: "animate-ping"
-        }
-      )
-    ] }),
-    inRange2 && !isMining && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[10px] font-mono whitespace-nowrap",
-        style: { color: "#00E6FF" },
-        children: [
-          Math.round(targetDistance),
-          "m"
-        ]
-      }
-    ),
-    isMining && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[10px] font-mono whitespace-nowrap text-amber-400", children: "MINING..." })
-  ] }) });
+    );
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "flex flex-col items-center pointer-events-auto",
+      "data-ocid": "mechlog.panel",
+      children: [
+        open && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            style: {
+              position: "fixed",
+              bottom: "80px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "320px",
+              // Standardized 30% opacity
+              background: "rgba(0,0,0,0.3)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(0,200,255,0.5)",
+              borderRadius: "8px",
+              boxShadow: "0 0 24px rgba(0,200,255,0.12)",
+              fontFamily: "monospace",
+              fontSize: "12px",
+              overflow: "hidden",
+              zIndex: 50,
+              // Panel show/hide: 300ms ease-out
+              animation: "panelIn 300ms ease-out"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 16px",
+                    borderBottom: "1px solid rgba(0,200,255,0.2)",
+                    background: "rgba(0,200,255,0.06)"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          color: "#00ccff",
+                          letterSpacing: "0.2em",
+                          textTransform: "uppercase",
+                          fontSize: "10px",
+                          fontWeight: "bold"
+                        },
+                        children: "Mechanical Log"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => setOpen(false),
+                        style: {
+                          color: "rgba(255,255,255,0.7)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          padding: "2px 4px",
+                          transition: "color 150ms ease"
+                        },
+                        "data-ocid": "mechlog.close_button",
+                        children: "✕"
+                      }
+                    )
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  style: {
+                    padding: "16px",
+                    maxHeight: "260px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: {
+                            color: "rgba(255,255,255,0.7)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.15em",
+                            fontSize: "10px",
+                            marginBottom: "8px"
+                          },
+                          children: "Ammunition"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: { display: "flex", flexDirection: "column", gap: "6px" },
+                          children: WEAPONS.map((w) => {
+                            const a2 = ammo[w.id];
+                            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                              "div",
+                              {
+                                style: {
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px"
+                                },
+                                children: [
+                                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                    "span",
+                                    {
+                                      style: {
+                                        width: "8px",
+                                        height: "8px",
+                                        borderRadius: "50%",
+                                        flexShrink: 0,
+                                        backgroundColor: w.color,
+                                        display: "inline-block"
+                                      }
+                                    }
+                                  ),
+                                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                    "span",
+                                    {
+                                      style: {
+                                        color: "rgba(255,255,255,0.85)",
+                                        width: "80px"
+                                      },
+                                      children: w.label
+                                    }
+                                  ),
+                                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                    "span",
+                                    {
+                                      style: {
+                                        color: a2 === void 0 ? "#00ccff" : a2 === 0 ? "#ff4444" : "white"
+                                      },
+                                      children: a2 === void 0 ? "∞" : a2
+                                    }
+                                  )
+                                ]
+                              },
+                              w.id
+                            );
+                          })
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: {
+                            color: "rgba(255,255,255,0.7)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.15em",
+                            fontSize: "10px",
+                            marginBottom: "8px"
+                          },
+                          children: "System Status"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: { display: "flex", flexDirection: "column", gap: "8px" },
+                          children: [
+                            ["HULL", hullPct, 100],
+                            ["OXYGEN", oxygen, 100],
+                            ["POWER", power, 100],
+                            ["FUEL", fuel, 100]
+                          ].map(([label, val, max]) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                            "div",
+                            {
+                              style: {
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px"
+                              },
+                              children: [
+                                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                  "span",
+                                  {
+                                    style: { color: "rgba(255,255,255,0.7)", width: "56px" },
+                                    children: label
+                                  }
+                                ),
+                                statBar(val, max),
+                                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "span",
+                                  {
+                                    style: {
+                                      color: "white",
+                                      width: "32px",
+                                      textAlign: "right"
+                                    },
+                                    children: [
+                                      Math.round(val),
+                                      "%"
+                                    ]
+                                  }
+                                )
+                              ]
+                            },
+                            label
+                          ))
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: {
+                            color: "rgba(255,255,255,0.7)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.15em",
+                            fontSize: "10px",
+                            marginBottom: "8px"
+                          },
+                          children: "Cooldowns"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: { display: "flex", flexDirection: "column", gap: "4px" },
+                          children: WEAPONS.map((w) => {
+                            const cd = cooldowns[w.id] ?? 0;
+                            return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                              "div",
+                              {
+                                style: {
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px"
+                                },
+                                children: [
+                                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                    "span",
+                                    {
+                                      style: {
+                                        color: "rgba(255,255,255,0.85)",
+                                        width: "80px"
+                                      },
+                                      children: w.label
+                                    }
+                                  ),
+                                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: cd > 0 ? "#ffaa00" : "#00ff88" }, children: cd > 0 ? `${cd.toFixed(1)}s` : "READY" })
+                                ]
+                              },
+                              w.id
+                            );
+                          })
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: {
+                            color: "rgba(255,255,255,0.7)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.15em",
+                            fontSize: "10px",
+                            marginBottom: "8px"
+                          },
+                          children: "Update History"
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "div",
+                        {
+                          style: {
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "4px",
+                            maxHeight: "96px",
+                            overflowY: "auto",
+                            scrollBehavior: "auto"
+                          },
+                          children: log2.map((entry, i2) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: log is append-only
+                            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: "8px" }, children: [
+                              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                                "span",
+                                {
+                                  style: { color: "rgba(255,255,255,0.3)", flexShrink: 0 },
+                                  children: entry.time
+                                }
+                              ),
+                              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: levelColor(entry.level), children: entry.msg })
+                            ] }, i2)
+                          ))
+                        }
+                      )
+                    ] })
+                  ]
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setOpen((o) => !o),
+            "aria-label": "Mechanical Log",
+            "data-ocid": "mechlog.open_modal_button",
+            style: {
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              border: open ? "2px solid rgba(0,200,255,1.0)" : "2px solid rgba(0,200,255,0.5)",
+              background: open ? "rgba(0,200,255,0.12)" : "rgba(0,0,0,0.3)",
+              backdropFilter: "blur(8px)",
+              color: open ? "#00ccff" : "rgba(0,200,255,0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              // 150ms interactive
+              transition: "all 150ms ease",
+              boxShadow: open ? "0 0 16px rgba(0,200,255,0.3)" : "none"
+            },
+            children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "svg",
+              {
+                width: "18",
+                height: "18",
+                viewBox: "0 0 24 24",
+                fill: "currentColor",
+                "aria-hidden": "true",
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("title", { children: "Mechanical Log" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M13 2L4.5 13.5H11L10 22L20.5 10H14L13 2Z" })
+                ]
+              }
+            )
+          }
+        )
+      ]
+    }
+  );
 }
 function MiningAlert() {
   const { isMining, miningTarget, miningProgress } = useShipStore();
@@ -66988,449 +71601,2351 @@ function NotificationSystem() {
     n.id
   )) });
 }
-function RadarMinimap() {
-  const position = useShipStore((s) => s.position);
-  const radarRadius = 200;
-  const svgRadius = 55;
-  const toRadarCoord = (wx, wz) => {
-    const dx = (wx - position[0]) / radarRadius;
-    const dz = (wz - position[2]) / radarRadius;
-    return { x: dx * svgRadius, y: dz * svgRadius };
-  };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 right-4 hud-panel p-3", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 font-mono text-glow-cyan", children: "RADAR" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", style: { width: 120, height: 120 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: 120, height: 120, "aria-hidden": "true", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "circle",
-        {
-          cx: 60,
-          cy: 60,
-          r: 55,
-          fill: "rgba(0,20,40,0.6)",
-          stroke: "rgba(0,230,255,0.3)",
-          strokeWidth: 1
-        }
-      ),
-      [18, 36, 55].map((r) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "circle",
-        {
-          cx: 60,
-          cy: 60,
-          r,
-          fill: "none",
-          stroke: "rgba(0,230,255,0.15)",
-          strokeWidth: 0.5
-        },
-        r
-      )),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "line",
-        {
-          x1: 5,
-          y1: 60,
-          x2: 115,
-          y2: 60,
-          stroke: "rgba(0,230,255,0.1)",
-          strokeWidth: 0.5
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "line",
-        {
-          x1: 60,
-          y1: 5,
-          x2: 60,
-          y2: 115,
-          stroke: "rgba(0,230,255,0.1)",
-          strokeWidth: 0.5
-        }
-      ),
-      STATION_POSITIONS.map((sp) => {
-        const { x: x2, y } = toRadarCoord(sp[0], sp[2]);
-        const cx = 60 + x2;
-        const cy = 60 + y;
-        if (cx < 5 || cx > 115 || cy < 5 || cy > 115) return null;
-        return /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "rect",
-          {
-            x: cx - 3,
-            y: cy - 3,
-            width: 6,
-            height: 6,
-            fill: "#00E6FF",
-            opacity: 0.8
-          },
-          `st-${sp[0]}-${sp[2]}`
-        );
-      }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: 60, cy: 60, r: 4, fill: "#00FF88" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "60,52 57,60 63,60", fill: "#00FF88" })
-    ] }) })
-  ] });
-}
-function Bar({
-  value,
-  max,
-  color
-}) {
-  const pct = Math.max(0, Math.min(100, value / max * 100));
-  const barColor = pct > 50 ? color : pct > 25 ? "#FFB700" : "#FF3333";
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-white/10 rounded-full overflow-hidden", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+const SHORT_LABEL = {
+  pulse: "PULSE",
+  rail: "RAIL",
+  missile: "MISS"
+};
+function WeaponPanel() {
+  const { activeWeapon, cooldowns, ammo, setActiveWeapon } = useWeaponsStore();
+  const currentCooldown = cooldowns[activeWeapon] ?? 0;
+  const currentAmmo = ammo[activeWeapon];
+  const canFire = currentCooldown <= 0 && (typeof currentAmmo === "number" ? currentAmmo > 0 : true);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "h-full rounded-full transition-all duration-300",
-      style: { width: `${pct}%`, backgroundColor: barColor }
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        background: "rgba(0,0,0,0.3)",
+        backdropFilter: "blur(8px)",
+        border: "1px solid rgba(0,200,255,0.5)",
+        borderRadius: "8px",
+        padding: "4px 6px",
+        boxShadow: "0 0 12px rgba(0,200,255,0.1)",
+        // Constrained to not bleed into joystick zones
+        maxWidth: "280px",
+        width: "100%"
+      },
+      "data-ocid": "weapons.panel",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              display: "flex",
+              flex: 1,
+              gap: "2px",
+              maxWidth: "180px"
+            },
+            children: WEAPONS.map((w) => {
+              const isActive = w.id === activeWeapon;
+              const cd = cooldowns[w.id] ?? 0;
+              const label = SHORT_LABEL[w.id] ?? w.id.toUpperCase().slice(0, 4);
+              return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setActiveWeapon(w.id),
+                  "data-ocid": `weapons.${w.id}_button`,
+                  style: {
+                    flex: 1,
+                    position: "relative",
+                    padding: "4px 6px",
+                    minHeight: "36px",
+                    minWidth: 0,
+                    borderRadius: "5px",
+                    border: isActive ? "1px solid rgba(0,200,255,0.9)" : "1px solid rgba(0,200,255,0.2)",
+                    background: isActive ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.03)",
+                    color: isActive ? "#00ccff" : "rgba(255,255,255,0.6)",
+                    fontFamily: "monospace",
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "2px",
+                    transition: "all 150ms ease",
+                    textShadow: isActive ? "0 0 6px rgba(0,200,255,0.7)" : "none",
+                    overflow: "hidden"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          width: "5px",
+                          height: "5px",
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          backgroundColor: isActive ? w.color : "rgba(255,255,255,0.3)",
+                          boxShadow: isActive ? `0 0 4px ${w.color}` : "none"
+                        }
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: label }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          position: "absolute",
+                          bottom: "3px",
+                          left: "6px",
+                          right: "6px",
+                          height: "1.5px",
+                          background: "#00ccff",
+                          borderRadius: "1px",
+                          transform: isActive ? "scaleX(1)" : "scaleX(0)",
+                          transition: "transform 150ms ease",
+                          transformOrigin: "center",
+                          boxShadow: isActive ? "0 0 4px rgba(0,200,255,0.9)" : "none"
+                        }
+                      }
+                    ),
+                    cd > 0 && isActive && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          position: "absolute",
+                          top: "2px",
+                          right: "3px",
+                          fontSize: "7px",
+                          color: "#ffaa00",
+                          lineHeight: 1
+                        },
+                        children: "CD"
+                      }
+                    )
+                  ]
+                },
+                w.id
+              );
+            })
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              width: "1px",
+              height: "28px",
+              background: "rgba(0,200,255,0.25)",
+              flexShrink: 0
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: handleFireButton,
+            disabled: !canFire,
+            "data-ocid": "weapons.fire_button",
+            style: {
+              padding: "4px 14px",
+              minHeight: "36px",
+              flexShrink: 0,
+              borderRadius: "5px",
+              border: canFire ? "1px solid rgba(255,60,60,0.9)" : "1px solid rgba(100,100,100,0.4)",
+              background: canFire ? "rgba(255,50,50,0.2)" : "rgba(100,100,100,0.1)",
+              color: canFire ? "#ff6666" : "rgba(100,100,100,0.5)",
+              fontFamily: "monospace",
+              fontSize: "11px",
+              fontWeight: "bold",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              cursor: canFire ? "pointer" : "not-allowed",
+              transition: "all 150ms ease",
+              textShadow: canFire ? "0 0 8px rgba(255,80,80,0.8)" : "none",
+              boxShadow: canFire ? "0 0 10px rgba(255,60,60,0.25)" : "none"
+            },
+            children: "FIRE"
+          }
+        )
+      ]
     }
-  ) });
+  );
 }
-function StatusPanel() {
-  const { hull, maxHull, fuel, maxFuel, oxygen, power, velocity } = useShipStore();
-  const speed = Math.round(getSpeed(velocity) * 20);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-4 left-4 hud-panel p-3 w-52 text-xs font-mono", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 text-[10px] tracking-[0.2em] font-bold mb-2 text-glow-cyan", children: "STATUS" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "HULL" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "span",
+const CAMERA_MODES = [
+  { id: "freeRoam", label: "FREE ROAM" },
+  { id: "orbital", label: "ORBITAL" },
+  { id: "combat", label: "COMBAT" }
+];
+const MENU_TABS = [
+  { id: "nav", label: "NAV" },
+  { id: "scan", label: "SCAN" },
+  { id: "comm", label: "COMM" }
+];
+function TopNavBar() {
+  const { mode, setMode } = useCameraStore();
+  const { activePanel, togglePanel } = useMenuStore();
+  const btnBase = {
+    fontFamily: "monospace",
+    fontSize: "11px",
+    fontWeight: "bold",
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    padding: "0 14px",
+    minHeight: "48px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "4px",
+    position: "relative",
+    transition: "color 150ms ease, text-shadow 150ms ease"
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "fixed",
+        top: 0,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 40,
+        pointerEvents: "auto"
+      },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(0,200,255,0.5)",
+            borderTop: "none",
+            borderRadius: "0 0 8px 8px",
+            backdropFilter: "blur(8px)",
+            boxShadow: "0 0 20px rgba(0,200,255,0.1)",
+            display: "flex",
+            alignItems: "stretch"
+          },
+          children: [
+            CAMERA_MODES.map(({ id, label }) => {
+              const isActive = mode === id;
+              return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setMode(id),
+                  "data-ocid": `nav.${id}`,
+                  style: {
+                    ...btnBase,
+                    color: isActive ? "#00ccff" : "rgba(255,255,255,0.7)",
+                    textShadow: isActive ? "0 0 10px rgba(0,200,255,0.8)" : "none"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: label }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          position: "absolute",
+                          bottom: "8px",
+                          left: "14px",
+                          right: "14px",
+                          height: "2px",
+                          background: "#00ccff",
+                          borderRadius: "1px",
+                          transform: isActive ? "scaleX(1)" : "scaleX(0)",
+                          transition: "transform 150ms ease",
+                          transformOrigin: "center",
+                          boxShadow: isActive ? "0 0 6px rgba(0,200,255,0.9)" : "none"
+                        }
+                      }
+                    )
+                  ]
+                },
+                id
+              );
+            }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                style: {
+                  width: "1px",
+                  background: "rgba(0,200,255,0.3)",
+                  margin: "10px 2px",
+                  flexShrink: 0
+                }
+              }
+            ),
+            MENU_TABS.map(({ id, label }) => {
+              const isOpen = activePanel === id;
+              return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => togglePanel(id),
+                  "data-ocid": `nav.${id}`,
+                  style: {
+                    ...btnBase,
+                    color: isOpen ? "#00ccff" : "rgba(255,255,255,0.7)",
+                    textShadow: isOpen ? "0 0 10px rgba(0,200,255,0.8)" : "none"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: label }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          position: "absolute",
+                          bottom: "8px",
+                          left: "14px",
+                          right: "14px",
+                          height: "2px",
+                          background: "#00ccff",
+                          borderRadius: "1px",
+                          transform: isOpen ? "scaleX(1)" : "scaleX(0)",
+                          transition: "transform 150ms ease",
+                          transformOrigin: "center",
+                          boxShadow: isOpen ? "0 0 6px rgba(0,200,255,0.9)" : "none"
+                        }
+                      }
+                    )
+                  ]
+                },
+                id
+              );
+            })
+          ]
+        }
+      )
+    }
+  );
+}
+function StatBar$1({
+  label,
+  value,
+  max = 100
+}) {
+  const pct = Math.max(0, Math.min(100, value / max * 100));
+  let barColor = "#00ccff";
+  if (label === "HULL")
+    barColor = pct > 60 ? "#00ff88" : pct > 30 ? "#ffaa00" : "#ff4444";
+  else if (label === "O2")
+    barColor = pct > 60 ? "#00e5ff" : pct > 30 ? "#ffaa00" : "#ff4444";
+  else if (label === "PWR")
+    barColor = pct > 60 ? "#ffe066" : pct > 30 ? "#ffaa00" : "#ff4444";
+  else if (label === "FUEL")
+    barColor = pct > 50 ? "#00ccff" : pct > 25 ? "#ffaa00" : "#ff4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "6px" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "span",
+      {
+        style: {
+          fontFamily: "monospace",
+          fontSize: "8px",
+          color: "rgba(255,255,255,0.7)",
+          letterSpacing: "0.12em",
+          width: "30px",
+          textAlign: "right",
+          flexShrink: 0
+        },
+        children: label
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          flex: 1,
+          height: "3px",
+          background: "rgba(255,255,255,0.08)",
+          borderRadius: "2px",
+          overflow: "hidden",
+          border: "1px solid rgba(0,200,255,0.5)",
+          minWidth: "52px"
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              height: "100%",
+              width: `${pct}%`,
+              background: barColor,
+              borderRadius: "2px",
+              transition: "width 500ms ease, background 500ms ease",
+              boxShadow: `0 0 6px ${barColor}80`
+            }
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "span",
+      {
+        style: {
+          fontFamily: "monospace",
+          fontSize: "8px",
+          color: barColor,
+          textShadow: `0 0 5px ${barColor}60`,
+          width: "26px",
+          flexShrink: 0,
+          transition: "color 500ms ease"
+        },
+        children: [
+          Math.round(pct),
+          "%"
+        ]
+      }
+    )
+  ] });
+}
+function UnifiedTopLeftPanel() {
+  const { hull, maxHull, oxygen, power, fuel, maxFuel } = useShipStore();
+  const { currentLane, changeLane } = useLaneStore();
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: "absolute pointer-events-auto",
+      style: { top: "60px", left: "12px", zIndex: 20 },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(0,200,255,0.5)",
+            boxShadow: "0 0 14px rgba(0,200,255,0.15), inset 0 0 6px rgba(0,200,255,0.04)",
+            backdropFilter: "blur(8px)",
+            borderRadius: "6px",
+            padding: "8px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+            minWidth: "130px"
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingBottom: "6px",
+                  borderBottom: "1px solid rgba(0,200,255,0.2)",
+                  gap: "6px"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => changeLane("down"),
+                      style: {
+                        fontFamily: "monospace",
+                        fontSize: "11px",
+                        color: "rgba(0,200,255,0.7)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "0 2px",
+                        lineHeight: 1,
+                        transition: "color 150ms ease"
+                      },
+                      "data-ocid": "lane.down",
+                      children: "▼"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: "4px" }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          fontFamily: "monospace",
+                          fontSize: "8px",
+                          color: "rgba(255,255,255,0.7)",
+                          letterSpacing: "0.15em"
+                        },
+                        children: "LANE"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "span",
+                      {
+                        style: {
+                          fontFamily: "monospace",
+                          fontSize: "16px",
+                          fontWeight: "bold",
+                          color: "#00e5ff",
+                          textShadow: "0 0 10px rgba(0,229,255,0.9), 0 0 20px rgba(0,229,255,0.4)",
+                          minWidth: "18px",
+                          textAlign: "center"
+                        },
+                        children: currentLane
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => changeLane("up"),
+                      style: {
+                        fontFamily: "monospace",
+                        fontSize: "11px",
+                        color: "rgba(0,200,255,0.7)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "0 2px",
+                        lineHeight: 1,
+                        transition: "color 150ms ease"
+                      },
+                      "data-ocid": "lane.up",
+                      children: "▲"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "span",
+                    {
+                      style: {
+                        fontFamily: "monospace",
+                        fontSize: "8px",
+                        color: "rgba(0,200,255,0.35)",
+                        letterSpacing: "0.08em"
+                      },
+                      children: "Q/E"
+                    }
+                  )
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar$1, { label: "HULL", value: hull, max: maxHull }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar$1, { label: "O2", value: oxygen, max: 100 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar$1, { label: "PWR", value: power, max: 100 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar$1, { label: "FUEL", value: fuel, max: maxFuel })
+          ]
+        }
+      )
+    }
+  );
+}
+function LockedIndicator() {
+  const lockedTarget = useEnemyStore((s) => s.lockedTarget);
+  const enemies = useEnemyStore((s) => s.enemies);
+  const mode = useCameraStore((s) => s.mode);
+  if (!lockedTarget || mode !== "combat") return null;
+  const enemy = enemies.find((e) => e.id === lockedTarget);
+  if (!enemy) return null;
+  const dist = enemy.distance ?? 80;
+  const hpPct = enemy.hp / enemy.maxHp;
+  const threat = hpPct > 0.7 ? "LOW" : hpPct > 0.3 ? "MED" : "HIGH";
+  const threatColor = threat === "LOW" ? "#00ff88" : threat === "MED" ? "#ffaa00" : "#ff4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none text-center",
+      style: { fontFamily: "monospace" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "text-cyan-400 text-xs tracking-[0.3em] uppercase animate-pulse",
+            style: { textShadow: "0 0 8px rgba(0,255,255,0.8)" },
+            children: "LOCKED"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-white text-[10px] tracking-widest mt-0.5", children: [
+          "DIST: ",
+          Math.round(dist),
+          "u"
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "text-[10px] tracking-widest mt-0.5",
+            style: { color: threatColor },
+            children: [
+              "THREAT: ",
+              threat
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
+function CombatReticle() {
+  const mode = useCameraStore((s) => s.mode);
+  const lockedTarget = useEnemyStore((s) => s.lockedTarget);
+  const enemies = useEnemyStore((s) => s.enemies);
+  const activeWeapon = useWeaponsStore((s) => s.activeWeapon);
+  if (mode !== "combat") return null;
+  const RANGES = { pulse: 60, rail: 200, missile: 120 };
+  let color = "rgba(255,255,255,0.5)";
+  if (lockedTarget) {
+    const enemy = enemies.find((e) => e.id === lockedTarget);
+    if (enemy) {
+      const dist = enemy.distance ?? 80;
+      color = dist <= (RANGES[activeWeapon] ?? 80) ? "#00ff88" : "#ff4444";
+    }
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative", width: 40, height: 40 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "50%",
+          left: 0,
+          right: 0,
+          height: 1,
+          background: color,
+          opacity: 0.8
+        }
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          left: "50%",
+          top: 0,
+          bottom: 0,
+          width: 1,
+          background: color,
+          opacity: 0.8
+        }
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: 4,
+          height: 4,
+          background: color,
+          borderRadius: "50%",
+          transform: "translate(-50%,-50%)"
+        }
+      }
+    ),
+    ["tl", "tr", "bl", "br"].map((c2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          ...c2.includes("t") ? { top: 0 } : { bottom: 0 },
+          ...c2.includes("l") ? { left: 0 } : { right: 0 },
+          width: 8,
+          height: 8,
+          borderTop: c2.includes("t") ? `1px solid ${color}` : void 0,
+          borderBottom: c2.includes("b") ? `1px solid ${color}` : void 0,
+          borderLeft: c2.includes("l") ? `1px solid ${color}` : void 0,
+          borderRight: c2.includes("r") ? `1px solid ${color}` : void 0
+        }
+      },
+      c2
+    ))
+  ] }) });
+}
+function LeadIndicator() {
+  const mode = useCameraStore((s) => s.mode);
+  const lockedTarget = useEnemyStore((s) => s.lockedTarget);
+  if (mode !== "combat" || !lockedTarget) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "relative" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "absolute",
+        top: -25,
+        left: 15,
+        width: 8,
+        height: 8,
+        border: "1px solid rgba(255,200,0,0.7)",
+        borderRadius: "50%",
+        transform: "translate(-50%, -50%)"
+      }
+    }
+  ) }) });
+}
+function MissileLockBar() {
+  const mode = useCameraStore((s) => s.mode);
+  const activeWeapon = useWeaponsStore((s) => s.activeWeapon);
+  const missileLocking = useWeaponsStore((s) => s.missileLocking);
+  const missileLockTimer = useWeaponsStore((s) => s.missileLockTimer);
+  if (mode !== "combat" || activeWeapon !== "missile" || !missileLocking)
+    return null;
+  const pct = Math.min(missileLockTimer / 1.5 * 100, 100);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute pointer-events-none",
+      style: {
+        bottom: "60%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 80,
+        marginTop: 12
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              fontSize: 9,
+              fontFamily: "monospace",
+              color: "#ff9900",
+              textAlign: "center",
+              letterSpacing: "0.15em",
+              marginBottom: 3
+            },
+            children: "LOCKING..."
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              height: 3,
+              background: "rgba(255,255,255,0.1)",
+              borderRadius: 2,
+              overflow: "hidden",
+              border: "1px solid rgba(255,153,0,0.4)"
+            },
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                style: {
+                  height: "100%",
+                  width: `${pct}%`,
+                  background: "#ff9900",
+                  transition: "width 0.05s linear"
+                }
+              }
+            )
+          }
+        )
+      ]
+    }
+  );
+}
+function FreeRoamHUD() {
+  var _a2, _b2;
+  const mode = useCameraStore((s) => s.mode);
+  const fuel = useShipStore((s) => s.fuel);
+  const maxFuel = useShipStore((s) => s.maxFuel);
+  const maxCargo = useShipStore((s) => s.maxCargo);
+  const resources = useInventoryStore((s) => s.resources);
+  const totalWeight = useInventoryStore((s) => s.totalWeight);
+  if (mode !== "freeRoam") return null;
+  const fuelPct = Math.round(fuel / maxFuel * 100);
+  const cargoUsed = Math.round(totalWeight());
+  let topResource = null;
+  for (const [key, amt] of Object.entries(resources)) {
+    const rKey = key;
+    const weight = (((_a2 = RESOURCES[rKey]) == null ? void 0 : _a2.weight) ?? 1) * amt;
+    if (weight > 0 && (!topResource || weight > topResource.amount)) {
+      topResource = { label: ((_b2 = RESOURCES[rKey]) == null ? void 0 : _b2.name) ?? key, amount: amt };
+    }
+  }
+  const fuelColor = fuelPct > 50 ? "#00ff88" : fuelPct > 25 ? "#ffaa00" : "#ff4444";
+  const cargoColor = cargoUsed / maxCargo < 0.8 ? "#00ccff" : cargoUsed / maxCargo < 0.95 ? "#ffaa00" : "#ff4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "absolute top-16 right-3 pointer-events-none",
+      style: {
+        background: "rgba(0,0,0,0.3)",
+        border: "1px solid rgba(0,255,136,0.5)",
+        borderRadius: "6px",
+        boxShadow: "0 0 12px rgba(0,255,136,0.12)",
+        backdropFilter: "blur(8px)",
+        padding: "10px 14px",
+        fontFamily: "monospace",
+        fontSize: "11px",
+        minWidth: "170px"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between mb-1", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "span",
+              {
+                style: { color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em" },
+                children: "FUEL"
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: fuelColor }, children: [
+              fuelPct,
+              "%"
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
             {
-              className: hull < 30 ? "text-red-400" : hull < 60 ? "text-amber-400" : "text-green-400",
-              children: [
-                Math.round(hull),
-                "/",
-                maxHull
-              ]
+              style: {
+                height: "3px",
+                background: "rgba(255,255,255,0.08)",
+                borderRadius: "2px",
+                overflow: "hidden",
+                border: "1px solid rgba(0,200,255,0.5)"
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  style: {
+                    height: "100%",
+                    width: `${fuelPct}%`,
+                    background: fuelColor,
+                    borderRadius: "2px",
+                    transition: "width 500ms ease"
+                  }
+                }
+              )
             }
           )
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Bar, { value: hull, max: maxHull, color: "#00FF88" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "FUEL" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: fuel < 20 ? "text-red-400" : "text-cyan-300", children: [
-            Math.round(fuel),
-            "%"
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "span",
+            {
+              style: { color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em" },
+              children: "CARGO"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: cargoColor }, children: [
+            cargoUsed,
+            "/",
+            maxCargo,
+            " KG"
           ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Bar, { value: fuel, max: maxFuel, color: "#00E6FF" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "OXYGEN" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: oxygen < 30 ? "text-red-400" : "text-green-400", children: [
-            Math.round(oxygen),
-            "%"
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Bar, { value: oxygen, max: 100, color: "#00FF88" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 mb-1", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "POWER" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-amber-300", children: [
-            Math.round(power),
-            "%"
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(Bar, { value: power, max: 100, color: "#FFB700" })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-gray-300 pt-1 border-t border-white/10", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "VELOCITY" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-cyan-300", children: [
-          speed,
-          " m/s"
-        ] })
-      ] })
-    ] })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            style: {
+              borderTop: "1px solid rgba(0,255,136,0.2)",
+              paddingTop: "8px",
+              marginTop: "4px"
+            },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  style: {
+                    color: "rgba(255,255,255,0.7)",
+                    letterSpacing: "0.15em",
+                    marginBottom: "3px"
+                  },
+                  children: "SCANNER"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  style: { color: topResource ? "#00ff88" : "rgba(255,255,255,0.25)" },
+                  children: topResource ? `TOP: ${topResource.label} ${topResource.amount}u` : "CLEAR"
+                }
+              )
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
+const ALL_BOTTOM_TABS = [
+  { id: "ship", label: "SHIP" },
+  { id: "cargo", label: "CARGO" },
+  { id: "nav", label: "NAV" },
+  { id: "scan", label: "SCAN" },
+  { id: "comm", label: "COMM" }
+];
+function BottomTabBar() {
+  const { activePanel, togglePanel } = useMenuStore();
+  const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  const enterStoryMode = useStoryStore((s) => s.enterStoryMode);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      className: "fixed left-1/2 -translate-x-1/2 pointer-events-auto",
+      style: { bottom: "72px", zIndex: 30 },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            display: "flex",
+            background: "rgba(0,0,0,0.3)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(0,200,255,0.5)",
+            borderRadius: "8px",
+            overflow: "hidden",
+            boxShadow: "0 0 16px rgba(0,200,255,0.1)"
+          },
+          children: [
+            ALL_BOTTOM_TABS.map(({ id, label }, idx) => {
+              const isActive = activePanel === id;
+              return /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => togglePanel(id),
+                  "data-ocid": `tab.${id}`,
+                  style: {
+                    fontFamily: "monospace",
+                    fontSize: "10px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    padding: "8px 14px",
+                    minHeight: "48px",
+                    background: isActive ? "rgba(0,200,255,0.12)" : "transparent",
+                    color: isActive ? "#00ccff" : "rgba(255,255,255,0.7)",
+                    border: "none",
+                    borderRight: idx < ALL_BOTTOM_TABS.length - 1 ? "1px solid rgba(0,200,255,0.2)" : "none",
+                    cursor: "pointer",
+                    transition: "color 150ms ease, background 150ms ease",
+                    textShadow: isActive ? "0 0 8px rgba(0,200,255,0.7)" : "none"
+                  },
+                  children: label
+                },
+                id
+              );
+            }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "div",
+              {
+                style: {
+                  width: "1px",
+                  background: "rgba(0,200,255,0.3)",
+                  margin: "8px 0",
+                  flexShrink: 0
+                }
+              }
+            ),
+            !isStoryMode && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: enterStoryMode,
+                "data-ocid": "tab.story_mode",
+                style: {
+                  fontFamily: "monospace",
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  padding: "8px 14px",
+                  minHeight: "48px",
+                  background: "rgba(0,255,136,0.08)",
+                  color: "#00ff88",
+                  border: "none",
+                  borderLeft: "1px solid rgba(0,200,255,0.2)",
+                  cursor: "pointer",
+                  transition: "color 150ms ease, background 150ms ease",
+                  textShadow: "0 0 8px rgba(0,255,136,0.5)"
+                },
+                children: "STORY"
+              }
+            )
+          ]
+        }
+      )
+    }
+  );
+}
+function BottomDock() {
+  const mode = useCameraStore((s) => s.mode);
+  const isCombat = mode === "combat";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          bottom: "16px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 30,
+          pointerEvents: isCombat ? "auto" : "none",
+          opacity: isCombat ? 1 : 0,
+          translate: isCombat ? "none" : "0 12px",
+          transition: "opacity 300ms ease-out, translate 300ms ease-out"
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(WeaponPanel, {})
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          bottom: "72px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 30,
+          pointerEvents: "auto"
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(MechLogPanel, {})
+      }
+    )
   ] });
 }
-function HUD({ targetId, targetDistance }) {
-  const showHUD = useGameStore((s) => s.showHUD);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 pointer-events-none z-10", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "scanlines absolute inset-0 pointer-events-none" }),
-    showHUD && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(StatusPanel, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(RadarMinimap, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(CargoPanel, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(MiningAlert, {})
+function DockButton() {
+  const nearDepot = useStoryStore((s) => s.nearDepot);
+  const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  const isVisible = useStoryStore((s) => s.isVisible);
+  const triggerEvent = useStoryStore((s) => s.triggerEvent);
+  if (!nearDepot || !isStoryMode || isVisible) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "fixed",
+        bottom: "130px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 45,
+        pointerEvents: "auto"
+      },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => triggerEvent("depot_arrival"),
+          "data-ocid": "story.dock_button",
+          style: {
+            fontFamily: "monospace",
+            fontSize: "14px",
+            fontWeight: "bold",
+            letterSpacing: "0.25em",
+            textTransform: "uppercase",
+            padding: "14px 32px",
+            minHeight: "60px",
+            background: "rgba(0,255,255,0.12)",
+            color: "#00ffff",
+            border: "2px solid #00ffff",
+            borderRadius: "6px",
+            cursor: "pointer",
+            boxShadow: "0 0 20px rgba(0,255,255,0.3), inset 0 0 10px rgba(0,255,255,0.05)",
+            textShadow: "0 0 10px rgba(0,255,255,0.8)",
+            transition: "background 150ms ease, box-shadow 150ms ease",
+            animation: "pulse 2s ease-in-out infinite"
+          },
+          children: "⬡ DOCK"
+        }
+      )
+    }
+  );
+}
+function StoryModeNotification() {
+  const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  const [show, setShow] = reactExports.useState(false);
+  const [prevMode, setPrevMode] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    if (isStoryMode && !prevMode) {
+      setShow(true);
+      const timer = setTimeout(() => setShow(false), 4e3);
+      return () => clearTimeout(timer);
+    }
+    setPrevMode(isStoryMode);
+  }, [isStoryMode, prevMode]);
+  if (!show) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      "data-ocid": "story.toast",
+      style: {
+        position: "fixed",
+        top: "70px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 60,
+        background: "rgba(0,20,30,0.92)",
+        border: "1px solid rgba(0,255,255,0.6)",
+        borderRadius: "6px",
+        padding: "10px 20px",
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#00e5ff",
+        textShadow: "0 0 8px rgba(0,229,255,0.6)",
+        letterSpacing: "0.12em",
+        backdropFilter: "blur(8px)",
+        boxShadow: "0 0 16px rgba(0,255,255,0.2)",
+        animation: "fadeIn 300ms ease-out",
+        whiteSpace: "nowrap",
+        pointerEvents: "none"
+      },
+      children: "✦ Fly to the depot and dock to begin"
+    }
+  );
+}
+function HUD(_props) {
+  useSwipeControls();
+  reactExports.useEffect(() => {
+    const onKeyDown = (e) => {
+      var _a2, _b2;
+      if (e.key === "f" || e.key === "F" || e.code === "Space") {
+        if (((_a2 = document.activeElement) == null ? void 0 : _a2.tagName) === "INPUT" || ((_b2 = document.activeElement) == null ? void 0 : _b2.tagName) === "TEXTAREA")
+          return;
+        e.preventDefault();
+        handleFireButton();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+  const mode = useCameraStore((s) => s.mode);
+  const isCombat = mode === "combat";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(CombatLogWatcher, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(TopNavBar, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 pointer-events-none", style: { zIndex: 10 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CockpitView, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "scanlines absolute inset-0 pointer-events-none" })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Crosshair, { targetId, targetDistance }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(NotificationSystem, {}),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(ControlsGuide, {})
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 pointer-events-none", style: { zIndex: 20 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(UnifiedTopLeftPanel, {}),
+      isCombat && /* @__PURE__ */ jsxRuntimeExports.jsx(AimCone, {}),
+      isCombat && /* @__PURE__ */ jsxRuntimeExports.jsx(CombatReticle, {}),
+      isCombat && /* @__PURE__ */ jsxRuntimeExports.jsx(LeadIndicator, {}),
+      isCombat && /* @__PURE__ */ jsxRuntimeExports.jsx(MissileLockBar, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(FreeRoamHUD, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(LockedIndicator, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(FPSCounter, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(MiningAlert, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(NotificationSystem, {})
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(BottomTabBar, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(BottomDock, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(DockButton, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StoryModeNotification, {})
   ] });
+}
+function ProjectileLayer() {
+  const { projectiles, removeProjectile } = useProjectileStore();
+  useFrame((_, delta) => {
+    useWeaponsStore.getState().tickCooldowns(delta);
+  });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: projectiles.map((proj) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Projectile,
+    {
+      ...proj,
+      targetId: proj.targetId,
+      onExpire: removeProjectile,
+      onHit: removeProjectile
+    },
+    proj.id
+  )) });
+}
+function ExplosionLayer() {
+  const { explosions, removeExplosion } = useExplosionStore();
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: explosions.map((exp) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    Explosion,
+    {
+      position: exp.position,
+      onComplete: () => removeExplosion(exp.id)
+    },
+    exp.id
+  )) });
+}
+const ORBITAL_HEIGHT = 0.6;
+const COMBAT_BEHIND_ANGLE = 0.18;
+const ORBITAL_PULL_BACK = 0.5;
+const COCKPIT_Z = 2;
+const COCKPIT_Y = 0.22;
+const FREE_ROAM_SPEED = 1.5;
+const COMBAT_HEIGHT = 0.28;
+function CameraOrbitController({
+  thetaRef,
+  phiRef,
+  isDragging,
+  keysDown
+}) {
+  const { camera } = useThree();
+  const currentPosRef = reactExports.useRef({ x: 0, y: 0.22, z: 2 });
+  useFrame((_, delta) => {
+    const state2 = useCameraStore.getState();
+    const cameraMode = state2.mode;
+    if (cameraMode === "combat") {
+      const laneRadius2 = useLaneStore.getState().getCurrentRadius();
+      thetaRef.current += delta * 0.04;
+      const theta2 = thetaRef.current;
+      const camAngle = theta2 - COMBAT_BEHIND_ANGLE;
+      const camRadius = laneRadius2 + ORBITAL_PULL_BACK;
+      const targetX2 = Math.sin(camAngle) * camRadius;
+      const targetY2 = COMBAT_HEIGHT;
+      const targetZ2 = Math.cos(camAngle) * camRadius;
+      const lerpSpeed2 = 5 * delta;
+      currentPosRef.current.x += (targetX2 - currentPosRef.current.x) * lerpSpeed2;
+      currentPosRef.current.y += (targetY2 - currentPosRef.current.y) * lerpSpeed2;
+      currentPosRef.current.z += (targetZ2 - currentPosRef.current.z) * lerpSpeed2;
+      camera.position.set(
+        currentPosRef.current.x,
+        currentPosRef.current.y,
+        currentPosRef.current.z
+      );
+      const aimPitch = state2.aimPitch;
+      const aimYaw = state2.aimYaw;
+      const toEarth = new Vector3(
+        -currentPosRef.current.x,
+        -currentPosRef.current.y,
+        -currentPosRef.current.z
+      ).normalize();
+      const up = new Vector3(0, 1, 0);
+      const right = new Vector3().crossVectors(toEarth, up).normalize();
+      const lookTarget = new Vector3(
+        0 + right.x * Math.tan(aimYaw) * 1.5,
+        Math.tan(aimPitch) * 1.5,
+        0 + right.z * Math.tan(aimYaw) * 1.5
+      );
+      camera.lookAt(lookTarget);
+      return;
+    }
+    if (cameraMode === "freeRoam") {
+      const yaw = state2.freeRoamYaw;
+      const pitch = state2.freeRoamPitch;
+      const pos = { ...state2.freeRoamPos };
+      const forward = new Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const right = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      const speed = FREE_ROAM_SPEED * delta;
+      if (keysDown.current.has("KeyW")) {
+        pos.x += forward.x * speed;
+        pos.z += forward.z * speed;
+      }
+      if (keysDown.current.has("KeyS")) {
+        pos.x -= forward.x * speed;
+        pos.z -= forward.z * speed;
+      }
+      if (keysDown.current.has("KeyA")) {
+        pos.x -= right.x * speed;
+        pos.z -= right.z * speed;
+      }
+      if (keysDown.current.has("KeyD")) {
+        pos.x += right.x * speed;
+        pos.z += right.z * speed;
+      }
+      useCameraStore.getState().setFreeRoamPos(pos);
+      camera.position.set(pos.x, pos.y, pos.z);
+      camera.rotation.order = "YXZ";
+      camera.rotation.y = yaw;
+      camera.rotation.x = pitch;
+      return;
+    }
+    const laneRadius = useLaneStore.getState().getCurrentRadius();
+    const RADIUS2 = laneRadius + ORBITAL_PULL_BACK;
+    if (!isDragging.current) {
+      thetaRef.current += delta * 0.025;
+    }
+    const theta = thetaRef.current;
+    const phi = Math.max(-0.2, Math.min(0.6, phiRef.current));
+    const targetX = RADIUS2 * Math.cos(phi) * Math.cos(theta);
+    const targetY = RADIUS2 * Math.sin(phi) + ORBITAL_HEIGHT;
+    const targetZ = RADIUS2 * Math.cos(phi) * Math.sin(theta);
+    const lerpSpeed = 3 * delta;
+    currentPosRef.current.x += (targetX - currentPosRef.current.x) * lerpSpeed;
+    currentPosRef.current.y += (targetY - currentPosRef.current.y) * lerpSpeed;
+    currentPosRef.current.z += (targetZ - currentPosRef.current.z) * lerpSpeed;
+    camera.position.set(
+      currentPosRef.current.x,
+      currentPosRef.current.y,
+      currentPosRef.current.z
+    );
+    camera.lookAt(0, 0, 0);
+  });
+  useFrame((_, delta) => {
+    const cameraMode = useCameraStore.getState().mode;
+    if (cameraMode !== "orbital" && cameraMode !== "combat" && cameraMode !== "freeRoam") {
+      const lerpSpeed = 3.5 * delta;
+      currentPosRef.current.x += (0 - currentPosRef.current.x) * lerpSpeed;
+      currentPosRef.current.y += (COCKPIT_Y - currentPosRef.current.y) * lerpSpeed;
+      currentPosRef.current.z += (COCKPIT_Z - currentPosRef.current.z) * lerpSpeed;
+      camera.position.set(
+        currentPosRef.current.x,
+        currentPosRef.current.y,
+        currentPosRef.current.z
+      );
+      camera.lookAt(0, 0, 0);
+    }
+  });
+  return null;
 }
 function GameCanvas() {
   const [targetId, setTargetId] = reactExports.useState(null);
   const [targetDistance, setTargetDistance] = reactExports.useState(
     Number.POSITIVE_INFINITY
   );
-  const { showInventory, showCrafting } = useGameStore();
-  const handleTargetChange = reactExports.useCallback((id, dist) => {
-    setTargetId(id);
-    setTargetDistance(dist);
-  }, []);
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full h-full relative", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      Canvas,
-      {
-        camera: { fov: 75, near: 0.1, far: 1e3, position: [0, 0, 0] },
-        gl: { antialias: true, alpha: false },
-        style: { background: "#081626" },
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("ambientLight", { intensity: 0.08 }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "directionalLight",
-            {
-              position: [100, 100, 50],
-              intensity: 1.2,
-              color: "#fff8e7"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "pointLight",
-            {
-              position: [0, 0, 0],
-              intensity: 0.5,
-              color: "#00E6FF",
-              distance: 50
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(StarField, {}),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AsteroidField, { onTargetChange: handleTargetChange }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceStation, {}),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(DerelictShips, {}),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(MiningLaser, { targetId, targetDistance }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(ShipController, {})
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(HUD, { targetId, targetDistance }),
-    showInventory && /* @__PURE__ */ jsxRuntimeExports.jsx(InventoryPanel, {}),
-    showCrafting && /* @__PURE__ */ jsxRuntimeExports.jsx(CraftingPanel, {})
-  ] });
-}
-function PauseMenu() {
-  const { togglePauseMenu, setGameStarted, addNotification } = useGameStore();
-  const saveGame = () => {
-    const ship = useShipStore.getState();
-    const inv = useInventoryStore.getState();
-    const saveData = {
-      hull: ship.hull,
-      fuel: ship.fuel,
-      credits: useGameStore.getState().credits,
-      resources: inv.resources
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-    addNotification("Game saved!", "success");
-    togglePauseMenu();
-  };
-  const quit = () => {
-    setGameStarted(false);
-    togglePauseMenu();
-  };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "hud-panel p-8 text-center min-w-64", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 tracking-[0.2em] font-bold font-mono text-lg mb-6", children: "PAUSED" }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: togglePauseMenu,
-          className: "w-full py-2 text-sm font-mono rounded border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 transition-colors pointer-events-auto",
-          children: "Resume"
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: saveGame,
-          className: "w-full py-2 text-sm font-mono rounded border border-green-500/50 text-green-400 hover:bg-green-500/10 transition-colors pointer-events-auto",
-          children: "Save Game"
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          type: "button",
-          onClick: quit,
-          className: "w-full py-2 text-sm font-mono rounded border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors pointer-events-auto",
-          children: "Quit to Menu"
-        }
-      )
-    ] })
-  ] }) });
-}
-function StartScreen() {
-  const { setGameStarted, addCredits } = useGameStore();
-  const [hasSave, setHasSave] = reactExports.useState(false);
-  const [blink, setBlink] = reactExports.useState(true);
+  const { showInventory, showCrafting, setNearestTargetDistance } = useGameStore();
+  const thetaRef = reactExports.useRef(0);
+  const phiRef = reactExports.useRef(0.35);
+  const isDragging = reactExports.useRef(false);
+  const lastPointer = reactExports.useRef({ x: 0, y: 0 });
+  const keysDown = reactExports.useRef(/* @__PURE__ */ new Set());
   reactExports.useEffect(() => {
-    const saved = localStorage.getItem(SAVE_KEY);
-    setHasSave(!!saved);
-    const interval = setInterval(() => setBlink((b2) => !b2), 600);
-    return () => clearInterval(interval);
+    const onKeyDown = (e) => keysDown.current.add(e.code);
+    const onKeyUp = (e) => keysDown.current.delete(e.code);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, []);
-  const startNew = () => {
-    useShipStore.getState().reset();
-    useInventoryStore.getState().reset();
-    setGameStarted(true);
-  };
-  const loadGame = () => {
-    try {
-      const saved = localStorage.getItem(SAVE_KEY);
-      if (!saved) {
-        startNew();
-        return;
-      }
-      const data = JSON.parse(saved);
-      const ship = useShipStore.getState();
-      if (data.hull < ship.maxHull) ship.takeDamage(ship.maxHull - data.hull);
-      if (data.fuel < ship.maxFuel) ship.consumeFuel(ship.maxFuel - data.fuel);
-      addCredits(data.credits);
-      const inv = useInventoryStore.getState();
-      for (const [type, amount] of Object.entries(data.resources)) {
-        if (amount > 0) inv.addResource(type, amount);
-      }
-      setGameStarted(true);
-    } catch {
-      startNew();
-    }
-  };
+  reactExports.useEffect(() => {
+    const onMouseMove = (e) => {
+      const mode2 = useCameraStore.getState().mode;
+      if (mode2 !== "combat") return;
+      const { aimPitch, aimYaw, setAimPitch, setAimYaw } = useCameraStore.getState();
+      const sensitivity = 15e-4;
+      setAimYaw(aimYaw + e.movementX * sensitivity);
+      setAimPitch(aimPitch - e.movementY * sensitivity);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    return () => window.removeEventListener("mousemove", onMouseMove);
+  }, []);
+  reactExports.useEffect(() => {
+    const onMouseMove = (e) => {
+      const mode2 = useCameraStore.getState().mode;
+      if (mode2 !== "freeRoam") return;
+      const { freeRoamYaw, freeRoamPitch, setFreeRoamYaw, setFreeRoamPitch } = useCameraStore.getState();
+      const sensitivity = 15e-4;
+      setFreeRoamYaw(freeRoamYaw + e.movementX * sensitivity);
+      setFreeRoamPitch(freeRoamPitch - e.movementY * sensitivity);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    return () => window.removeEventListener("mousemove", onMouseMove);
+  }, []);
+  const handleTargetChange = reactExports.useCallback(
+    (id, dist) => {
+      setTargetId(id);
+      setTargetDistance(dist);
+      setNearestTargetDistance(dist);
+    },
+    [setNearestTargetDistance]
+  );
+  const mode = useCameraStore((s) => s.mode);
+  const isCombatOrFreeRoam = mode === "combat" || mode === "freeRoam";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "fixed inset-0 flex flex-col items-center justify-center z-50 overflow-hidden",
-      style: {
-        background: "radial-gradient(ellipse at center, #0d1f35 0%, #081626 60%, #020a14 100%)"
+      className: "w-full h-full relative",
+      style: { touchAction: "none" },
+      onPointerDown: (e) => {
+        if (mode !== "orbital") return;
+        isDragging.current = true;
+        lastPointer.current = { x: e.clientX, y: e.clientY };
+      },
+      onPointerMove: (e) => {
+        if (!isDragging.current || isCombatOrFreeRoam) return;
+        const dx = e.clientX - lastPointer.current.x;
+        const dy = e.clientY - lastPointer.current.y;
+        thetaRef.current -= dx * 5e-3;
+        phiRef.current -= dy * 5e-3;
+        lastPointer.current = { x: e.clientX, y: e.clientY };
+      },
+      onPointerUp: () => {
+        isDragging.current = false;
+      },
+      onPointerLeave: () => {
+        isDragging.current = false;
       },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 overflow-hidden", children: Array.from({ length: 100 }).map((_, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "div",
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          Canvas,
           {
-            className: "absolute w-px h-px bg-white rounded-full",
-            style: {
-              left: `${i2 * 13.7 % 100}%`,
-              top: `${i2 * 7.3 % 100}%`,
-              opacity: i2 % 5 * 0.2 + 0.1,
-              animation: `twinkle ${2 + i2 % 3}s ease-in-out infinite`,
-              animationDelay: `${i2 % 30 * 0.1}s`
-            }
-          },
-          i2
-        )) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-6 left-6 w-12 h-12 border-l-2 border-t-2 border-cyan-500/50" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-6 right-6 w-12 h-12 border-r-2 border-t-2 border-cyan-500/50" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-6 left-6 w-12 h-12 border-l-2 border-b-2 border-cyan-500/50" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-6 right-6 w-12 h-12 border-r-2 border-b-2 border-cyan-500/50" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative z-10 text-center px-8", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-500/60 text-sm tracking-[0.4em] font-mono mb-3 uppercase", children: "Deep Space Exploration" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "h1",
-            {
-              className: "text-5xl md:text-7xl font-bold tracking-[0.15em] font-mono mb-2 uppercase",
-              style: {
-                color: "#00E6FF",
-                textShadow: "0 0 20px #00E6FF, 0 0 60px rgba(0,230,255,0.4)"
-              },
-              children: "FRONTIER"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "h2",
-            {
-              className: "text-xl md:text-2xl tracking-[0.3em] font-mono mb-8 uppercase",
-              style: {
-                color: "#D7E2EA",
-                textShadow: "0 0 10px rgba(215,226,234,0.3)"
-              },
-              children: "Lost in Space"
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-400 text-sm font-mono mb-12 tracking-wider", children: "Navigate. Mine. Craft. Survive." }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3 items-center mb-8", children: [
-            hasSave && /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: loadGame,
-                className: "px-10 py-3 text-sm font-mono tracking-widest uppercase rounded border transition-all hover:scale-105 pointer-events-auto",
-                style: {
-                  backgroundColor: "rgba(0,255,136,0.1)",
-                  borderColor: "#00FF88",
-                  color: "#00FF88",
-                  textShadow: "0 0 10px #00FF88",
-                  boxShadow: "0 0 20px rgba(0,255,136,0.2)"
-                },
-                children: "Continue Mission"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: startNew,
-                className: "px-10 py-3 text-sm font-mono tracking-widest uppercase rounded border transition-all hover:scale-105 pointer-events-auto",
-                style: {
-                  backgroundColor: "rgba(0,230,255,0.1)",
-                  borderColor: "#00E6FF",
-                  color: "#00E6FF",
-                  textShadow: "0 0 10px #00E6FF",
-                  boxShadow: "0 0 20px rgba(0,230,255,0.2)"
-                },
-                children: "New Mission"
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              className: "border border-white/10 rounded px-6 py-3 text-[10px] font-mono text-gray-500 grid grid-cols-5 gap-4",
-              style: { background: "rgba(10,20,35,0.6)" },
-              children: [
-                ["WASD", "Move"],
-                ["MOUSE", "Aim"],
-                ["SPACE", "Boost"],
-                ["CLICK", "Mine"],
-                ["I/C", "Panels"]
-              ].map(([key, action]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-500", children: key }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: action })
-              ] }, key))
-            }
-          ),
-          blink && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-gray-500 text-xs font-mono mt-6 tracking-widest", children: "CLICK TO LOCK CONTROLS" })
-        ] })
+            camera: { fov: 55, near: 0.05, far: 2e3, position: [0, 0.5, 5] },
+            gl: { antialias: true, alpha: false },
+            style: { background: "#050d1a" },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("ambientLight", { intensity: 0.4 }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "directionalLight",
+                {
+                  position: [100, 100, 50],
+                  intensity: 3.5,
+                  color: "#ffffff"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "pointLight",
+                {
+                  position: [0, 0, 0],
+                  intensity: 1.2,
+                  color: "#4488ff",
+                  distance: 200
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "pointLight",
+                {
+                  position: [0, 80, 0],
+                  intensity: 0.6,
+                  color: "#ffffff",
+                  distance: 300
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                CameraOrbitController,
+                {
+                  thetaRef,
+                  phiRef,
+                  isDragging,
+                  keysDown
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(CombatTargetingSystem, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(StarField, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(AmbientUniverse, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("group", { position: [0, 0, 0], children: /* @__PURE__ */ jsxRuntimeExports.jsx(EarthGlobe, {}) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(AsteroidField, { onTargetChange: handleTargetChange }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceStation, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(DerelictShips, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SpaceDepot, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(MiningLaser, { targetId, targetDistance }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(EnemyLayer, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(EnemyLabels, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(ProjectileLayer, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(ExplosionLayer, {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(ShipController, {})
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(HUD, { targetId, targetDistance }),
+        showInventory && /* @__PURE__ */ jsxRuntimeExports.jsx(InventoryPanel, {}),
+        showCrafting && /* @__PURE__ */ jsxRuntimeExports.jsx(CraftingPanel, {})
       ]
     }
   );
 }
-function App() {
-  const gameStarted = useGameStore((s) => s.gameStarted);
-  const showPauseMenu = useGameStore((s) => s.showPauseMenu);
+const CHOICE_LABELS = ["A", "B", "C", "D"];
+function StoryPanel() {
+  const { currentEvent, isVisible, selectChoice, dismiss } = useStoryStore();
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          zIndex: 48,
+          pointerEvents: "none",
+          opacity: isVisible ? 1 : 0,
+          transition: "opacity 300ms ease-out"
+        }
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "50vh",
+          zIndex: 49,
+          transform: isVisible ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 0.3s ease-out",
+          pointerEvents: isVisible ? "auto" : "none"
+        },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            style: {
+              background: "rgba(4,13,26,0.95)",
+              borderTop: "2px solid #00ffff",
+              height: "100%",
+              overflowY: "auto",
+              padding: "16px 20px",
+              boxSizing: "border-box",
+              backdropFilter: "blur(12px)"
+            },
+            children: currentEvent && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { maxWidth: "760px", margin: "0 auto" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  style: {
+                    background: "rgba(0,255,255,0.08)",
+                    border: "1px solid #00ccff",
+                    borderRadius: "6px",
+                    padding: "12px 16px",
+                    marginBottom: "14px"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "div",
+                      {
+                        style: {
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "8px"
+                        },
+                        children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "div",
+                            {
+                              style: {
+                                width: "7px",
+                                height: "7px",
+                                borderRadius: "50%",
+                                background: "#00e5ff",
+                                boxShadow: "0 0 8px #00e5ff",
+                                flexShrink: 0,
+                                animation: "pulse 1.5s ease-in-out infinite"
+                              }
+                            }
+                          ),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "span",
+                            {
+                              style: {
+                                fontFamily: "monospace",
+                                fontSize: "11px",
+                                fontWeight: "bold",
+                                letterSpacing: "0.2em",
+                                textTransform: "uppercase",
+                                color: "#00e5ff",
+                                textShadow: "0 0 8px rgba(0,229,255,0.7)"
+                              },
+                              children: currentEvent.speaker
+                            }
+                          )
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "p",
+                      {
+                        style: {
+                          fontFamily: "monospace",
+                          fontSize: "13px",
+                          lineHeight: 1.6,
+                          color: "rgba(255,255,255,0.9)",
+                          margin: 0
+                        },
+                        children: [
+                          "“",
+                          currentEvent.dialogue,
+                          "”"
+                        ]
+                      }
+                    )
+                  ]
+                }
+              ),
+              currentEvent.choices.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px"
+                  },
+                  children: currentEvent.choices.map((choice, index2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => selectChoice(choice),
+                      "data-ocid": `story.choice.${index2 + 1}`,
+                      style: {
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "10px 14px",
+                        minHeight: "60px",
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(0,200,255,0.4)",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        transition: "border-color 150ms ease, background 150ms ease",
+                        boxSizing: "border-box"
+                      },
+                      onMouseEnter: (e) => {
+                        e.currentTarget.style.borderColor = "#00ccff";
+                        e.currentTarget.style.background = "rgba(0,200,255,0.08)";
+                      },
+                      onMouseLeave: (e) => {
+                        e.currentTarget.style.borderColor = "rgba(0,200,255,0.4)";
+                        e.currentTarget.style.background = "rgba(0,0,0,0.5)";
+                      },
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "span",
+                          {
+                            style: {
+                              flexShrink: 0,
+                              width: "26px",
+                              height: "26px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border: "1px solid rgba(0,200,255,0.5)",
+                              borderRadius: "4px",
+                              fontFamily: "monospace",
+                              fontSize: "11px",
+                              fontWeight: "bold",
+                              color: "#00ccff"
+                            },
+                            children: CHOICE_LABELS[index2] ?? index2 + 1
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx(
+                            "div",
+                            {
+                              style: {
+                                fontFamily: "monospace",
+                                fontSize: "12px",
+                                color: "#ffffff",
+                                marginBottom: choice.effects ? "5px" : 0
+                              },
+                              children: choice.text
+                            }
+                          ),
+                          choice.effects && Object.keys(choice.effects).length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                            "div",
+                            {
+                              style: {
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "8px",
+                                fontFamily: "monospace",
+                                fontSize: "10px"
+                              },
+                              children: [
+                                choice.effects.oxygen !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "span",
+                                  {
+                                    style: {
+                                      color: choice.effects.oxygen > 0 ? "#00ff88" : "#ff4444"
+                                    },
+                                    children: [
+                                      choice.effects.oxygen > 0 ? "+" : "",
+                                      choice.effects.oxygen,
+                                      " O₂"
+                                    ]
+                                  }
+                                ),
+                                choice.effects.hull !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "span",
+                                  {
+                                    style: {
+                                      color: choice.effects.hull > 0 ? "#00ff88" : "#ff4444"
+                                    },
+                                    children: [
+                                      choice.effects.hull > 0 ? "+" : "",
+                                      choice.effects.hull,
+                                      " HULL"
+                                    ]
+                                  }
+                                ),
+                                choice.effects.power !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "span",
+                                  {
+                                    style: {
+                                      color: choice.effects.power > 0 ? "#ffe066" : "#ff4444"
+                                    },
+                                    children: [
+                                      choice.effects.power > 0 ? "+" : "",
+                                      choice.effects.power,
+                                      " PWR"
+                                    ]
+                                  }
+                                ),
+                                choice.effects.fuel !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                                  "span",
+                                  {
+                                    style: {
+                                      color: choice.effects.fuel > 0 ? "#00ccff" : "#ff4444"
+                                    },
+                                    children: [
+                                      choice.effects.fuel > 0 ? "+" : "",
+                                      choice.effects.fuel,
+                                      " FUEL"
+                                    ]
+                                  }
+                                )
+                              ]
+                            }
+                          )
+                        ] })
+                      ]
+                    },
+                    choice.id
+                  ))
+                }
+              ) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: dismiss,
+                  "data-ocid": "story.close_button",
+                  style: {
+                    width: "100%",
+                    padding: "14px",
+                    minHeight: "60px",
+                    background: "rgba(0,200,255,0.15)",
+                    border: "1px solid #00ccff",
+                    borderRadius: "5px",
+                    color: "#00ccff",
+                    fontFamily: "monospace",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    boxSizing: "border-box"
+                  },
+                  children: "Continue"
+                }
+              )
+            ] })
+          }
+        )
+      }
+    )
+  ] });
+}
+function stopCurrent() {
+  var _a2;
+  (_a2 = window.speechSynthesis) == null ? void 0 : _a2.cancel();
+}
+async function playVoiceLine(text, voiceId) {
+  stopCurrent();
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = 0.8;
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }
+}
+function VoicePlayer() {
+  const currentEvent = useStoryStore((s) => s.currentEvent);
+  const isVisible = useStoryStore((s) => s.isVisible);
   reactExports.useEffect(() => {
-    if (!gameStarted) return;
+    if (currentEvent && isVisible) {
+      playVoiceLine(currentEvent.dialogue);
+    }
+  }, [currentEvent, isVisible]);
+  return null;
+}
+function OverlayPanel({ title, children }) {
+  const { closePanel } = useMenuStore();
+  reactExports.useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") closePanel();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [closePanel]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.35)",
+          backdropFilter: "blur(4px)",
+          zIndex: 48,
+          // Panel show: 300ms ease-out
+          animation: "backdropIn 300ms ease-out"
+        },
+        onClick: closePanel,
+        onKeyDown: (e) => e.key === "Escape" && closePanel(),
+        role: "button",
+        tabIndex: -1,
+        "aria-label": "Close panel"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "90vw",
+          maxWidth: "480px",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: "8px",
+          overflow: "hidden",
+          zIndex: 50,
+          // Standardized 30% opacity
+          background: "rgba(0,0,0,0.3)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(0,200,255,0.5)",
+          boxShadow: "0 0 40px rgba(0,200,255,0.12)",
+          // Panel show: 300ms ease-out
+          animation: "panelIn 300ms ease-out"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 20px",
+                flexShrink: 0,
+                borderBottom: "1px solid rgba(0,200,255,0.25)",
+                background: "rgba(0,200,255,0.06)"
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "span",
+                  {
+                    style: {
+                      fontFamily: "monospace",
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      // Primary cyan for interactive labels
+                      color: "#00ccff",
+                      textShadow: "0 0 8px rgba(0,200,255,0.5)"
+                    },
+                    children: title
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: closePanel,
+                    style: {
+                      color: "rgba(255,255,255,0.7)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "16px",
+                      lineHeight: 1,
+                      padding: "4px",
+                      // 150ms interactive
+                      transition: "color 150ms ease"
+                    },
+                    onMouseEnter: (e) => {
+                      e.target.style.color = "#ffffff";
+                    },
+                    onMouseLeave: (e) => {
+                      e.target.style.color = "rgba(255,255,255,0.7)";
+                    },
+                    "data-ocid": "overlay.close_button",
+                    children: "✕"
+                  }
+                )
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              style: {
+                overflowY: "auto",
+                flex: 1,
+                padding: "20px",
+                fontFamily: "monospace",
+                fontSize: "12px",
+                color: "rgba(255,255,255,0.85)"
+              },
+              children
+            }
+          )
+        ]
+      }
+    )
+  ] });
+}
+function CargoPanel() {
+  const { resources, totalWeight } = useInventoryStore();
+  const weight = totalWeight();
+  const capacity = 500;
+  const pct = Math.min(100, weight / capacity * 100);
+  const nonZero = Object.keys(resources).filter(
+    (k2) => resources[k2] > 0
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between font-mono text-xs", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 uppercase tracking-widest", children: "CARGO WEIGHT" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-cyan-400 font-bold", children: [
+          Math.round(weight),
+          " / ",
+          capacity,
+          " KG"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "h-2 rounded overflow-hidden",
+          style: { background: "rgba(255,255,255,0.08)" },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "h-full rounded transition-all duration-500",
+              style: {
+                width: `${pct}%`,
+                background: pct > 80 ? "#ef4444" : "#00e5ff",
+                boxShadow: `0 0 6px ${pct > 80 ? "#ef4444" : "#00e5ff"}`
+              }
+            }
+          )
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "text-[10px] font-mono text-cyan-500/50 uppercase tracking-widest pb-1",
+        style: { borderBottom: "1px solid rgba(0,200,255,0.15)" },
+        children: "Resources"
+      }
+    ),
+    nonZero.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-center font-mono text-cyan-500/30 uppercase tracking-widest text-xs py-6", children: "CARGO HOLD EMPTY" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2", children: nonZero.map((type) => {
+      var _a2;
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between font-mono text-xs", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-300 uppercase tracking-wide", children: ((_a2 = RESOURCES[type]) == null ? void 0 : _a2.name) ?? type }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-400 font-bold", children: resources[type] })
+      ] }, type);
+    }) })
+  ] });
+}
+function CommPanel() {
+  const entries = useCombatLogStore((s) => s.entries);
+  const scrollRef = reactExports.useRef(null);
+  const entriesLen = entries.length;
+  reactExports.useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [entriesLen]);
+  const levelColor = (l2) => l2 === "alert" ? "rgba(255,80,80,0.95)" : l2 === "warn" ? "rgba(255,170,0,0.9)" : "rgba(0,200,255,0.8)";
+  const visibleEntries = entries.slice(-20);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4 font-mono text-xs", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "text-[10px] text-cyan-500/50 uppercase tracking-widest pb-2",
+        style: { borderBottom: "1px solid rgba(0,200,255,0.15)" },
+        children: "A.E.G.I.S. COMM RELAY · SECURE CHANNEL"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-center text-cyan-500/30 uppercase tracking-widest py-2", children: "NO ACTIVE TRANSMISSIONS" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        style: {
+          borderTop: "1px solid rgba(0,200,255,0.15)",
+          paddingTop: "12px"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              className: "text-[10px] uppercase tracking-widest mb-3",
+              style: { color: "rgba(0,200,255,0.5)" },
+              children: "COMBAT LOG"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "div",
+            {
+              ref: scrollRef,
+              style: {
+                maxHeight: "260px",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+                // constant-velocity scroll — controlled via scrollTop, no CSS easing
+                scrollBehavior: "auto"
+              },
+              children: visibleEntries.map((entry) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    animation: "fadeInUp 0.2s ease"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: levelColor(entry.level), flex: 1 }, children: entry.msg }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "rgba(0,200,255,0.3)", flexShrink: 0 }, children: entry.time })
+                  ]
+                },
+                entry.id
+              ))
+            }
+          )
+        ]
+      }
+    )
+  ] });
+}
+const waypoints = [
+  {
+    id: "WP-1",
+    name: "Mining Zone Alpha",
+    distance: 15.2,
+    coords: "045-12-08"
+  },
+  { id: "WP-2", name: "Station Relay", distance: 42.7, coords: "310-05-22" },
+  { id: "WP-3", name: "Safe Harbor", distance: 89.3, coords: "180-00-15" }
+];
+const currentPosition = { sector: 7, coords: "000-00-00" };
+const currentVelocity = 0;
+function NavPanel() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-cyan-500 font-bold uppercase text-sm border-b border-cyan-500/30 pb-2 mb-3 tracking-widest", children: "Current Position" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between p-2.5 bg-cyan-500/10 border border-cyan-500 rounded", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 text-xs uppercase tracking-widest", children: "Sector" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-400 font-mono font-bold text-xs", children: currentPosition.sector })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between p-2.5 bg-gray-900/50 border border-cyan-500/30 rounded", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 text-xs uppercase tracking-widest", children: "Coordinates" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white font-mono text-xs", children: currentPosition.coords })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between p-2.5 bg-gray-900/50 border border-cyan-500/30 rounded", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 text-xs uppercase tracking-widest", children: "Velocity" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-white font-mono text-xs", children: [
+            currentVelocity,
+            " km/s"
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "space-y-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-cyan-500 font-bold uppercase text-sm border-b border-cyan-500/30 pb-2 tracking-widest", children: "Waypoints" }),
+      waypoints.map((wp) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "p-3 bg-gray-900/50 border border-cyan-500/30 rounded hover:border-cyan-500 cursor-pointer transition-all",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-start mb-1", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 font-bold text-xs", children: wp.name }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-gray-500 text-[10px] font-mono mt-0.5", children: wp.coords })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-white font-mono text-xs", children: [
+                wp.distance,
+                " km"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                className: "w-full mt-2 px-3 py-1 bg-cyan-500/20 border border-cyan-500 text-cyan-400 text-[10px] font-semibold uppercase tracking-widest rounded hover:bg-cyan-500/30 transition-all",
+                children: "Set Course"
+              }
+            )
+          ]
+        },
+        wp.id
+      ))
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        className: "w-full px-4 py-2.5 bg-cyan-500/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/30 font-semibold uppercase text-xs tracking-widest rounded transition-all",
+        children: "Add Waypoint"
+      }
+    )
+  ] });
+}
+const targets = [
+  {
+    id: "AST-001",
+    type: "Asteroid",
+    distance: 2.4,
+    bearing: 45,
+    minerals: "Iron, Silicon",
+    threat: null
+  },
+  {
+    id: "AST-002",
+    type: "Asteroid",
+    distance: 5.1,
+    bearing: 120,
+    minerals: "Rare Earth",
+    threat: null
+  },
+  {
+    id: "HOST-1",
+    type: "Hostile",
+    distance: 8.2,
+    bearing: 310,
+    minerals: null,
+    threat: "HIGH"
+  },
+  {
+    id: "HOST-2",
+    type: "Hostile",
+    distance: 12.5,
+    bearing: 280,
+    minerals: null,
+    threat: "MED"
+  },
+  {
+    id: "DEB-45",
+    type: "Debris",
+    distance: 1.8,
+    bearing: 90,
+    minerals: "None",
+    threat: null
+  }
+];
+function ScanPanel() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-cyan-500 font-bold uppercase text-sm border-b border-cyan-500/30 pb-2 mb-3 tracking-widest", children: "Sector Scan" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-cyan-500/10 border border-cyan-500 rounded p-3 mb-4 space-y-1", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-xs", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 uppercase tracking-widest", children: "Range" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-400 font-mono", children: "15.0 km" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-xs", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 uppercase tracking-widest", children: "Contacts" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-cyan-400 font-mono", children: [
+            targets.length,
+            " detected"
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "space-y-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-cyan-500 font-bold uppercase text-sm border-b border-cyan-500/30 pb-2 tracking-widest", children: "Targets" }),
+      targets.map((target) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "p-3 bg-gray-900/50 border border-cyan-500/30 rounded hover:border-cyan-500 cursor-pointer transition-all",
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-start", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-cyan-400 font-mono font-bold text-xs", children: target.id }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-gray-500 text-xs uppercase tracking-widest mt-0.5", children: target.type })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-right", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-white font-mono text-xs", children: [
+                  target.distance,
+                  " km"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-gray-500 text-xs", children: [
+                  target.bearing,
+                  "°"
+                ] })
+              ] })
+            ] }),
+            target.minerals && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[10px] text-gray-500 mt-2 uppercase tracking-widest", children: [
+              "Minerals:",
+              " ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-cyan-600", children: target.minerals })
+            ] }),
+            target.threat && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: `text-[10px] mt-2 font-bold uppercase tracking-widest ${target.threat === "HIGH" ? "text-red-500" : "text-orange-400"}`,
+                children: [
+                  "⚠ Threat: ",
+                  target.threat
+                ]
+              }
+            )
+          ]
+        },
+        target.id
+      ))
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        className: "w-full px-4 py-2.5 bg-cyan-500/20 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/30 font-semibold uppercase text-xs tracking-widest rounded transition-all",
+        children: "Initiate Deep Scan"
+      }
+    )
+  ] });
+}
+function StatBar({
+  label,
+  value,
+  max
+}) {
+  const pct = Math.max(0, Math.min(100, value / max * 100));
+  const color = pct > 60 ? "#00e5ff" : pct > 30 ? "#f59e0b" : "#ef4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between font-mono text-xs", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 uppercase tracking-widest", children: label }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color }, className: "font-bold", children: [
+        Math.round(value),
+        "/",
+        max
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "h-1.5 rounded overflow-hidden",
+        style: { background: "rgba(255,255,255,0.08)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "h-full rounded transition-all duration-500",
+            style: {
+              width: `${pct}%`,
+              background: color,
+              boxShadow: `0 0 6px ${color}`
+            }
+          }
+        )
+      }
+    )
+  ] });
+}
+function dispatchKey(type, code, key) {
+  window.dispatchEvent(new KeyboardEvent(type, { code, key, bubbles: true }));
+}
+function ShipPanel() {
+  const { hull, maxHull, oxygen, fuel, maxFuel, power, velocity } = useShipStore();
+  const vel = velocity ?? [0, 0, 0];
+  const speed = Math.hypot(vel[0] ?? 0, vel[1] ?? 0, vel[2] ?? 0);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "text-[10px] font-mono text-cyan-500/50 uppercase tracking-widest pb-2",
+        style: { borderBottom: "1px solid rgba(0,200,255,0.15)" },
+        children: "System Status"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar, { label: "HULL", value: hull, max: maxHull }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar, { label: "OXYGEN", value: oxygen, max: 100 }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar, { label: "FUEL", value: fuel, max: maxFuel }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StatBar, { label: "POWER", value: power, max: 100 }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid rgba(0,200,255,0.15)" } }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "text-[10px] font-mono text-cyan-500/50 uppercase tracking-widest pb-2",
+        style: { borderBottom: "1px solid rgba(0,200,255,0.15)" },
+        children: "Propulsion"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2 pointer-events-auto", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          "data-ocid": "ship.boost_button",
+          onPointerDown: () => dispatchKey("keydown", "Space", " "),
+          onPointerUp: () => dispatchKey("keyup", "Space", " "),
+          onPointerLeave: () => dispatchKey("keyup", "Space", " "),
+          className: "flex-1 py-2 rounded border-2 border-yellow-500 bg-yellow-500/20 text-yellow-400 font-bold font-mono text-xs tracking-widest uppercase hover:bg-yellow-500/40 active:scale-95 transition-all",
+          children: "BOOST"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          "data-ocid": "ship.brake_button",
+          onPointerDown: () => dispatchKey("keydown", "ShiftLeft", "Shift"),
+          onPointerUp: () => dispatchKey("keyup", "ShiftLeft", "Shift"),
+          onPointerLeave: () => dispatchKey("keyup", "ShiftLeft", "Shift"),
+          className: "flex-1 py-2 rounded border-2 border-red-500 bg-red-500/20 text-red-400 font-bold font-mono text-xs tracking-widest uppercase hover:bg-red-500/40 active:scale-95 transition-all",
+          children: "BRAKE"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "text-[10px] font-mono text-cyan-500/50 uppercase tracking-widest pb-2",
+        style: { borderBottom: "1px solid rgba(0,200,255,0.15)" },
+        children: "Navigation"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between font-mono text-xs", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-gray-400 uppercase tracking-widest", children: "Velocity" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-cyan-300 font-bold", children: [
+        speed.toFixed(1),
+        " KM/S"
+      ] })
+    ] })
+  ] });
+}
+function PanelRouter() {
+  const { activePanel } = useMenuStore();
+  if (!activePanel) return null;
+  const panels = {
+    ship: { title: "SHIP STATUS", content: /* @__PURE__ */ jsxRuntimeExports.jsx(ShipPanel, {}) },
+    cargo: { title: "CARGO HOLD", content: /* @__PURE__ */ jsxRuntimeExports.jsx(CargoPanel, {}) },
+    nav: { title: "NAVIGATION", content: /* @__PURE__ */ jsxRuntimeExports.jsx(NavPanel, {}) },
+    scan: { title: "SCANNER", content: /* @__PURE__ */ jsxRuntimeExports.jsx(ScanPanel, {}) },
+    comm: { title: "COMM LOG", content: /* @__PURE__ */ jsxRuntimeExports.jsx(CommPanel, {}) }
+  };
+  const panel = panels[activePanel];
+  if (!panel) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(OverlayPanel, { title: panel.title, children: panel.content });
+}
+function App() {
+  const { detectDevice } = useDeviceStore();
+  const isStoryMode = useStoryStore((s) => s.isStoryMode);
+  reactExports.useEffect(() => {
+    detectDevice();
+    window.addEventListener("resize", detectDevice);
+    return () => window.removeEventListener("resize", detectDevice);
+  }, [detectDevice]);
+  reactExports.useEffect(() => {
     const interval = setInterval(() => {
       const ship = useShipStore.getState();
       const inv = useInventoryStore.getState();
       const saveData = {
         hull: ship.hull,
         fuel: ship.fuel,
-        credits: useGameStore.getState().credits,
         resources: inv.resources
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
     }, 3e4);
     return () => clearInterval(interval);
-  }, [gameStarted]);
+  }, []);
+  reactExports.useEffect(() => {
+    if (!isStoryMode) return;
+    const { storyStartTime } = useStoryStore.getState();
+    if (!storyStartTime) return;
+    const elapsed = Date.now() - storyStartTime;
+    const delay = Math.max(0, 3e4 - elapsed);
+    const timer = setTimeout(() => {
+      const state2 = useStoryStore.getState();
+      if (state2.isStoryMode && !state2.completedEvents.includes("systems_critical") && !state2.isVisible) {
+        state2.triggerEvent("systems_critical");
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [isStoryMode]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-screen h-screen overflow-hidden bg-[#081626]", children: [
-    !gameStarted && /* @__PURE__ */ jsxRuntimeExports.jsx(StartScreen, {}),
-    gameStarted && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(GameCanvas, {}),
-      showPauseMenu && /* @__PURE__ */ jsxRuntimeExports.jsx(PauseMenu, {})
-    ] })
+    /* @__PURE__ */ jsxRuntimeExports.jsx(GameCanvas, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(PanelRouter, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(MobileControls, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(StoryPanel, {}),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(VoicePlayer, {})
   ] });
 }
 const alphabet = "abcdefghijklmnopqrstuvwxyz234567";
@@ -71664,10 +78179,10 @@ function adjustScalarBytes(bytes) {
 const ED25519_SQRT_M1 = /* @__PURE__ */ BigInt("19681161376707505956807079304988542015446066515923890162744021073123829784752");
 function uvRatio(u, v) {
   const P = ed25519_CURVE_p;
-  const v3 = mod(v * v * v, P);
-  const v7 = mod(v3 * v3 * v, P);
+  const v32 = mod(v * v * v, P);
+  const v7 = mod(v32 * v32 * v, P);
   const pow = ed25519_pow_2_252_3(u * v7).pow_p_5_8;
-  let x2 = mod(u * v3 * pow, P);
+  let x2 = mod(u * v32 * pow, P);
   const vx2 = mod(v * x2 * x2, P);
   const root1 = x2;
   const root2 = mod(x2 * ED25519_SQRT_M1, P);
@@ -72171,10 +78686,10 @@ function _parseBlob(value) {
   return hexToBytes(value);
 }
 class Delegation {
-  constructor(pubkey, expiration, targets) {
+  constructor(pubkey, expiration, targets2) {
     this.pubkey = pubkey;
     this.expiration = expiration;
-    this.targets = targets;
+    this.targets = targets2;
   }
   toCborValue() {
     return {
@@ -72193,12 +78708,12 @@ class Delegation {
     };
   }
 }
-async function _createSingleDelegation(from, to, expiration, targets) {
+async function _createSingleDelegation(from, to, expiration, targets2) {
   const delegation = new Delegation(
     to.toDer(),
     BigInt(+expiration) * BigInt(1e6),
     // In nanoseconds.
-    targets
+    targets2
   );
   const challenge = new Uint8Array([
     ...IC_REQUEST_AUTH_DELEGATION_DOMAIN_SEPARATOR,
@@ -72256,8 +78771,8 @@ class DelegationChain {
     }
     const parsedDelegations = delegations.map((signedDelegation) => {
       const { delegation, signature } = signedDelegation;
-      const { pubkey, expiration, targets } = delegation;
-      if (targets !== void 0 && !Array.isArray(targets)) {
+      const { pubkey, expiration, targets: targets2 } = delegation;
+      if (targets2 !== void 0 && !Array.isArray(targets2)) {
         throw new Error("Invalid targets.");
       }
       return {
@@ -72265,7 +78780,7 @@ class DelegationChain {
           _parseBlob(pubkey),
           BigInt("0x" + expiration),
           // expiration in JSON is an hexa string (See toJSON() below).
-          targets && targets.map((t) => {
+          targets2 && targets2.map((t) => {
             if (typeof t !== "string") {
               throw new Error("Invalid target.");
             }
@@ -72293,13 +78808,13 @@ class DelegationChain {
     return {
       delegations: this.delegations.map((signedDelegation) => {
         const { delegation, signature } = signedDelegation;
-        const { targets } = delegation;
+        const { targets: targets2 } = delegation;
         return {
           delegation: {
             expiration: delegation.expiration.toString(16),
             pubkey: safeBytesToHex(delegation.pubkey),
-            ...targets && {
-              targets: targets.map((t) => t.toHex())
+            ...targets2 && {
+              targets: targets2.map((t) => t.toHex())
             }
           },
           signature: safeBytesToHex(signature)
@@ -73297,7 +79812,7 @@ function InternetIdentityProvider({
     setStatus("logging-in");
     void authClient.login(options);
   }, [authClient, handleLoginError, handleLoginSuccess, setErrorMessage]);
-  const clear = reactExports.useCallback(() => {
+  const clear2 = reactExports.useCallback(() => {
     if (!authClient) {
       setErrorMessage("Auth client not initialized");
       return;
@@ -73348,7 +79863,7 @@ function InternetIdentityProvider({
     () => ({
       identity: identity2,
       login,
-      clear,
+      clear: clear2,
       loginStatus,
       isInitializing: loginStatus === "initializing",
       isLoginIdle: loginStatus === "idle",
@@ -73357,7 +79872,7 @@ function InternetIdentityProvider({
       isLoginError: loginStatus === "loginError",
       loginError
     }),
-    [identity2, login, clear, loginStatus, loginError]
+    [identity2, login, clear2, loginStatus, loginError]
   );
   return reactExports.createElement(InternetIdentityReactContext.Provider, {
     value,

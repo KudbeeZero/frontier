@@ -1,51 +1,37 @@
-# Frontier: Lost in Space
+# Frontier: Orbital Combat
 
 ## Current State
-New project. No existing application files.
+- Ground target destruction system is live: 8 hardcoded targets on Earth surface, 100 HP each, 50 credits, all static.
+- Five orbital hex-grid rings exist on the Earth globe as decorative visual elements with no gameplay purpose.
+- `laneStore` controls camera orbital radius (radii [1.6, 1.9, 2.2, 2.5, 2.8]) and lane switching (Q/E or swipe).
+- Combat mode: player orbits Earth, locks onto ground targets (0.5s dwell), fires projectiles, targets take damage and are destroyed.
+- No level progression system exists. Once all 8 targets are destroyed, nothing happens.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Full 3D browser-based space exploration and crafting game
-- React Three Fiber 3D scene with physics-based ship navigation
-- Procedural asteroid field generation with instanced meshes
-- Procedural star field background (parallax layers)
-- Points of interest: derelict ships, space stations, anomalies
-- Ship controller: WASD movement, mouse look, pointer lock, boost/brake
-- Physics system: momentum, inertia, velocity-based movement
-- Mining system: raycast targeting, laser beam, progress extraction, resource gathering
-- 9 resource types: Iron, Silicon, Carbon, Titanium, Platinum, Rare Earth Elements, Exotic Matter, Dark Matter, Quantum Crystals
-- Inventory management: weight/volume-based system
-- Crafting system: recipe database, crafting UI, component installation
-- Ship components: hull upgrades, engine upgrades, mining lasers, shields, scanners, refineries
-- Survival systems: fuel, hull integrity, oxygen, power management
-- HUD: velocity indicator, fuel gauge, hull integrity, cargo capacity, crosshair, mini-map/radar
-- TAB key toggles HUD visibility for immersive mode
-- Auto-save/load system using localStorage
-- Quick restart option
-- Tutorial/onboarding flow
-- Particle effects: engine thrust, mining laser
-- Zustand stores: gameStore, shipStore, inventoryStore, craftingStore
-- TypeScript interfaces for all game types
+- `orbitalLevelStore.ts`: 5-level config system with level names, altitudes, target counts, HP, credit rewards, enemy types, return fire flags, shield regen flags.
+- `OrbitalLevelHUD.tsx`: Left-side panel showing all 5 levels with lock/active/complete status, current target counter, and level name.
+- `EnemyReturnFire.tsx`: Component active in combat mode for levels 4+; fires periodic hull damage at the player ship.
+- Level-complete animation/notification: "LEVEL COMPLETE - ADVANCING" notification + auto-advance after 2s.
+- Even target distribution per level using golden-angle sphere placement.
+- Shield HP on level 3 targets (4 of 16 have shields, 2x effective HP).
+- Shield regen system for level 5 targets.
 
 ### Modify
-- App.tsx: render the full game canvas
+- `groundTargetStore.ts`: Add `resetForLevel(level)` that generates level-appropriate targets. Add `shieldHp`/`shieldMaxHp`/`shieldRegenRate` fields.
+- `EarthGlobe.tsx`: Orbital rings now reflect level status — active (bright cyan), completed (dim green), locked (very dim gray). Show level number labels next to rings.
+- `HUD.tsx`: Show `OrbitalLevelHUD` in combat mode. Update target counter to show level context ("LVL 3 - 14/16").
+- `GameCanvas.tsx`: Add `EnemyReturnFire` component.
 
 ### Remove
-- Nothing (new project)
+- Hardcoded 8-target initial state in `groundTargetStore`; replaced by level-driven generation starting from level 1.
 
 ## Implementation Plan
-1. Define all TypeScript types/interfaces in `src/types/game.ts`
-2. Create Zustand stores: gameStore, shipStore, inventoryStore, craftingStore
-3. Implement utility modules: physics.ts, generation.ts, constants.ts
-4. Build Environment components: StarField, AsteroidField (instanced), SpaceStation, DerelictShip, Anomaly
-5. Build Ship component with ShipController (pointer lock, WASD, mouse look, physics)
-6. Build HUD system: velocity, fuel, hull, cargo, crosshair, radar, scanner
-7. Build Mining system: targeting reticle, laser beam, progress bar, extraction logic
-8. Build Inventory UI: resource grid, weight display, component list
-9. Build Crafting UI: recipe browser, category filters, resource requirements, craft queue
-10. Build Game container: Canvas setup, lighting, fog, scene composition
-11. Wire auto-save (localStorage) and restart logic
-12. Add particle effects for engine thrust and mining laser
-13. Implement collision detection for hull damage
-14. Performance: LOD, frustum culling, object pooling
+1. Create `orbitalLevelStore.ts` with 5 level configs and progression logic.
+2. Update `groundTargetStore.ts` to support level-driven target generation with golden-angle distribution, optional shields, and shield regen.
+3. Create `OrbitalLevelHUD.tsx` showing 5-level ladder with status indicators.
+4. Create `EnemyReturnFire.tsx` for levels 4-5 damage logic.
+5. Update `EarthGlobe.tsx` rings to reflect level status colors.
+6. Update `HUD.tsx` to wire in the level HUD.
+7. Update `GameCanvas.tsx` to include EnemyReturnFire.

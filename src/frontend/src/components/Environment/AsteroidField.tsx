@@ -27,7 +27,6 @@ export default function AsteroidField({ onTargetChange }: AsteroidFieldProps) {
   const inventoryStore = useInventoryStore();
   const gameStore = useGameStore();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - only regenerate when count changes
   const rotations = useMemo(
     () =>
       Array.from(

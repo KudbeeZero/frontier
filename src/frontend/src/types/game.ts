@@ -97,3 +97,77 @@ export interface DerelictShipData {
 export type Vector3Tuple = [number, number, number];
 
 export { THREE };
+
+// ─── Combat Types ─────────────────────────────────────────────────────────────
+
+export type WeaponId = "pulse" | "rail" | "missile";
+
+export interface WeaponConfig {
+  id: WeaponId;
+  label: string;
+  damage: number;
+  fireRate: number;
+  energyCost: number;
+  speed: number;
+  color: string;
+}
+
+export type EnemyType = "scout" | "cruiser" | "dreadnought" | "drone";
+
+export interface EnemyConfig {
+  type: EnemyType;
+  label: string;
+  hp: number;
+  speed: number;
+  damage: number;
+  reward: number;
+  scoreValue: number;
+  scale: number;
+  color: string;
+}
+
+export interface Enemy {
+  id: string;
+  type: EnemyType;
+  theta: number;
+  phi: number;
+  /** Current distance from origin; starts at ENEMY_WORLD_RADIUS and shrinks as enemy advances */
+  distance?: number;
+  hp: number;
+  maxHp: number;
+  speed: number;
+  damage: number;
+  reward: number;
+  scoreValue: number;
+  /** Whether this enemy is actively hostile toward the player */
+  hostile: boolean;
+}
+
+export type GamePhase = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface OrbitalPosition {
+  theta: number;
+  phi: number;
+}
+
+export type EventTrigger =
+  | "game_start"
+  | "wave_complete"
+  | "boss_defeated"
+  | "manual"
+  | string;
+
+export interface CombatEvent {
+  id: string;
+  phase: GamePhase;
+  title: string;
+  message: string;
+  speaker?: string;
+  trigger: EventTrigger;
+  effects?: Partial<{
+    hull: number;
+    fuel: number;
+    credits: number;
+    weaponsOnline: boolean;
+  }>;
+}

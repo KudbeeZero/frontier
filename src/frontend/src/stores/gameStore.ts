@@ -11,17 +11,20 @@ interface GameState {
   showHUD: boolean;
   gameMode: GameMode;
   credits: number;
+  score: number;
   discoveredLocations: Location[];
   notifications: Notification[];
   gameStarted: boolean;
   showInventory: boolean;
   showCrafting: boolean;
   showPauseMenu: boolean;
+  nearestTargetDistance: number;
 
   setPaused: (paused: boolean) => void;
   toggleHUD: () => void;
   setGameMode: (mode: GameMode) => void;
   addCredits: (amount: number) => void;
+  addScore: (amount: number) => void;
   discoverLocation: (location: Location) => void;
   addNotification: (message: string, type: NotificationType) => void;
   removeNotification: (id: string) => void;
@@ -29,6 +32,7 @@ interface GameState {
   toggleInventory: () => void;
   toggleCrafting: () => void;
   togglePauseMenu: () => void;
+  setNearestTargetDistance: (dist: number) => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -36,17 +40,20 @@ export const useGameStore = create<GameState>((set) => ({
   showHUD: true,
   gameMode: "exploration",
   credits: 0,
+  score: 0,
   discoveredLocations: [],
   notifications: [],
   gameStarted: false,
   showInventory: false,
   showCrafting: false,
   showPauseMenu: false,
+  nearestTargetDistance: Number.POSITIVE_INFINITY,
 
   setPaused: (paused) => set({ isPaused: paused }),
   toggleHUD: () => set((s) => ({ showHUD: !s.showHUD })),
   setGameMode: (mode) => set({ gameMode: mode }),
   addCredits: (amount) => set((s) => ({ credits: s.credits + amount })),
+  addScore: (amount) => set((s) => ({ score: s.score + amount })),
   discoverLocation: (location) =>
     set((s) => ({
       discoveredLocations: s.discoveredLocations.some(
@@ -75,4 +82,5 @@ export const useGameStore = create<GameState>((set) => ({
   toggleCrafting: () =>
     set((s) => ({ showCrafting: !s.showCrafting, showInventory: false })),
   togglePauseMenu: () => set((s) => ({ showPauseMenu: !s.showPauseMenu })),
+  setNearestTargetDistance: (dist) => set({ nearestTargetDistance: dist }),
 }));
