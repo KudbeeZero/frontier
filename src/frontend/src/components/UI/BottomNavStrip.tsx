@@ -1,36 +1,40 @@
 import { useMenuStore } from "../../stores/menuStore";
 
 const NAV_ITEMS = [
-  { id: "cargo", icon: "📦", label: "CARGO" },
-  { id: "build", icon: "🔧", label: "BUILD" },
-  { id: "map", icon: "🗺", label: "MAP" },
-  { id: "chat", icon: "💬", label: "COMM" },
-  { id: "stats", icon: "📊", label: "STATS" },
-  { id: "menu", icon: "☰", label: "MENU" },
+  { id: "cargo", icon: "📦", label: "CARGO", disabled: false },
+  { id: "build", icon: "🔧", label: "BUILD", disabled: true },
+  { id: "map", icon: "🗺", label: "MAP", disabled: false },
+  { id: "chat", icon: "💬", label: "COMM", disabled: false },
+  { id: "stats", icon: "📊", label: "STATS", disabled: false },
+  { id: "menu", icon: "☰", label: "MENU", disabled: false },
 ] as const;
 
 type NavItemId = (typeof NAV_ITEMS)[number]["id"];
 
 export function BottomNavStrip() {
-  const { activePanel, togglePanel } = useMenuStore();
+  const { activePanel, togglePanel, showCircularMenu, toggleCircularMenu } =
+    useMenuStore();
 
   const handleClick = (id: NavItemId) => {
     if (id === "cargo") {
-      togglePanel("cargo" as Parameters<typeof togglePanel>[0]);
+      togglePanel("cargo");
     } else if (id === "menu") {
-      togglePanel("ship" as Parameters<typeof togglePanel>[0]);
+      toggleCircularMenu();
     } else if (id === "stats") {
-      togglePanel("scan" as Parameters<typeof togglePanel>[0]);
+      togglePanel("scan");
     } else if (id === "chat") {
-      togglePanel("comm" as Parameters<typeof togglePanel>[0]);
+      togglePanel("comm");
+    } else if (id === "map") {
+      togglePanel("nav");
     }
   };
 
   const isActive = (id: NavItemId) => {
     if (id === "cargo") return activePanel === "cargo";
-    if (id === "menu") return activePanel === "ship";
+    if (id === "menu") return showCircularMenu;
     if (id === "stats") return activePanel === "scan";
     if (id === "chat") return activePanel === "comm";
+    if (id === "map") return activePanel === "nav";
     return false;
   };
 
@@ -56,11 +60,13 @@ export function BottomNavStrip() {
     >
       {NAV_ITEMS.map((item) => {
         const active = isActive(item.id);
+        const disabled = item.disabled;
         return (
           <button
             key={item.id}
             type="button"
-            onClick={() => handleClick(item.id)}
+            onClick={disabled ? undefined : () => handleClick(item.id)}
+            disabled={disabled}
             data-ocid={`nav.${item.id}_button`}
             style={{
               display: "flex",
@@ -71,15 +77,24 @@ export function BottomNavStrip() {
               width: 44,
               height: 44,
               borderRadius: "50%",
-              background: active ? "rgba(0,200,255,0.18)" : "rgba(0,0,0,0.5)",
+              background: disabled
+                ? "rgba(0,0,0,0.2)"
+                : active
+                  ? "rgba(0,200,255,0.18)"
+                  : "rgba(0,0,0,0.5)",
               border: `1.5px solid ${
-                active ? "rgba(0,200,255,0.8)" : "rgba(0,200,255,0.25)"
+                disabled
+                  ? "rgba(0,200,255,0.1)"
+                  : active
+                    ? "rgba(0,200,255,0.8)"
+                    : "rgba(0,200,255,0.25)"
               }`,
-              cursor: "pointer",
+              cursor: disabled ? "not-allowed" : "pointer",
               transition: "all 150ms ease",
               boxShadow: active ? "0 0 12px rgba(0,200,255,0.35)" : "none",
               flexShrink: 0,
               padding: 0,
+              opacity: disabled ? 0.35 : 1,
             }}
           >
             <span style={{ fontSize: 14, lineHeight: 1 }}>{item.icon}</span>

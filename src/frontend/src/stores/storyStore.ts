@@ -22,6 +22,42 @@ export interface StoryEvent {
 }
 
 const STORY_EVENTS: Record<string, StoryEvent> = {
+  // ── tutorial events ───────────────────────────────────────────────────────
+  tutorial_welcome: {
+    id: "tutorial_welcome",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "Commander. I am A.E.G.I.S. — your Adaptive Electronic Guardian and Intelligence System. I will be your guide during this mission. Welcome to Frontier. Let me walk you through what you need to know.",
+    choices: [{ id: "next", text: "Ready. Let's begin.", nextEvent: "tutorial_controls" }],
+  },
+  tutorial_controls: {
+    id: "tutorial_controls",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "Movement: use W/A/S/D to navigate. Your mouse controls your aim and camera direction. Hold SPACE for a speed boost. Press F to fire your weapons. Use Q and E to switch between orbital altitude lanes — lower lanes are safer, higher lanes are more dangerous.",
+    choices: [{ id: "next", text: "Got it. What about combat?", nextEvent: "tutorial_combat" }],
+  },
+  tutorial_combat: {
+    id: "tutorial_combat",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "Switch to COMBAT mode using the top navigation bar. Ground targets will appear on the surface below. Keep your crosshair on a target for 0.5 seconds to lock on, then press F to fire. Destroy all targets in a level to advance. Higher levels have shielded targets and return fire — watch your hull integrity.",
+    choices: [{ id: "next", text: "Understood. What about the HUD?", nextEvent: "tutorial_hud" }],
+  },
+  tutorial_hud: {
+    id: "tutorial_hud",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "The bottom navigation bar gives you quick access to your systems: CARGO for resources, MAP for navigation, COMM for communications, STATS for your ship status, and MENU for the full panel hub. Your orbital level progress is shown on the left side in combat mode. Press ESC at any time to pause.",
+    choices: [{ id: "next", text: "I'm ready, A.E.G.I.S.", nextEvent: "tutorial_complete" }],
+  },
+  tutorial_complete: {
+    id: "tutorial_complete",
+    speaker: "A.E.G.I.S.",
+    dialogue:
+      "Excellent. You have everything you need to survive out here, Commander. Stay sharp, watch your resources, and trust your instincts. The frontier is unforgiving — but so are you. Good luck.",
+    choices: [{ id: "begin", text: "Begin mission." }],
+  },
   // ── original events ──────────────────────────────────────────────────────
   p1_systems_damaged: {
     id: "p1_systems_damaged",
@@ -169,6 +205,7 @@ interface StoryState {
   completedEvents: string[];
   currentStage: number;
   isStoryMode: boolean;
+  isTutorialMode: boolean;
   storyStartTime: number | null;
   nearDepot: boolean;
   /** Current navigation objective in world space (null = no target) */
@@ -181,6 +218,8 @@ interface StoryState {
   dismiss: () => void;
   enterStoryMode: () => void;
   exitStoryMode: () => void;
+  enterTutorialMode: () => void;
+  exitTutorialMode: () => void;
   setNearDepot: (near: boolean) => void;
   markEventComplete: (eventId: string) => void;
   checkUnlocks: () => void;
@@ -193,6 +232,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   completedEvents: [],
   currentStage: 1,
   isStoryMode: false,
+  isTutorialMode: false,
   storyStartTime: null,
   nearDepot: false,
   objectivePosition: null,
@@ -247,6 +287,13 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       return;
     }
 
+    // Handle tutorial_complete — end tutorial mode
+    if (currentId === "tutorial_complete") {
+      set({ isVisible: false });
+      get().exitTutorialMode();
+      return;
+    }
+
     // Navigate to next event or dismiss
     if (choice.nextEvent) {
       const next = STORY_EVENTS[choice.nextEvent];
@@ -281,6 +328,10 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       objectivePosition: null,
       objectiveLabel: "",
     }),
+
+  enterTutorialMode: () => set({ isTutorialMode: true }),
+
+  exitTutorialMode: () => set({ isTutorialMode: false }),
 
   setNearDepot: (near: boolean) => set({ nearDepot: near }),
 
